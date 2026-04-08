@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android", "web"],
+  "apple": {
+    "modules": ["ReactNativeFilesystemModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.filesystem.ReactNativeFilesystemModule"]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "react-native-filesystem": ["../src/index"],
+      "react-native-filesystem/*": ["../src/*"]
+    }
+  }
+}
