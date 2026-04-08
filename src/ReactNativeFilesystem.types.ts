@@ -21,6 +21,20 @@ export type ChangeEventPayload = {
   value: string;
 };
 
+export enum ReactNativeFilesystemDirectoryKind {
+  Documents = 'documents',
+  Custom = 'custom',
+}
+
+export type ReactNativeFilesystemDirectoryDescriptor =
+  | {
+      kind: ReactNativeFilesystemDirectoryKind.Documents;
+    }
+  | {
+      kind: ReactNativeFilesystemDirectoryKind.Custom;
+      path: string;
+    };
+
 export type ReactNativeFilesystemViewProps = {
   url: string;
   onLoad: (event: { nativeEvent: OnLoadEventPayload }) => void;

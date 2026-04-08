@@ -1,7 +1,10 @@
 import ExpoModulesCore
 import Foundation
+import UIKit
 
 public class ReactNativeFilesystemModule: Module {
+  private lazy var fileExportHandler = IOSFileExportHandler(module: self)
+
   // Each module class must implement the definition function. The definition consists of components
   // that describes the module's functionality and behavior.
   // See https://docs.expo.dev/modules/module-api for more details about available components.
@@ -33,6 +36,18 @@ public class ReactNativeFilesystemModule: Module {
       ])
     }
 
+    AsyncFunction("getDocumentsDirectory") { () -> String in
+      guard let path = self.appContext?.config.documentDirectory?.path else {
+        throw NSError(
+          domain: "ReactNativeFilesystem",
+          code: 500,
+          userInfo: [NSLocalizedDescriptionKey: "Unable to resolve the iOS documents directory."]
+        )
+      }
+
+      return path
+    }
+
     AsyncFunction("exists") { (path: String) -> Bool in
       FileManager.default.fileExists(atPath: path)
     }
@@ -60,6 +75,20 @@ public class ReactNativeFilesystemModule: Module {
       )
       try contents.write(to: url, atomically: true, encoding: .utf8)
     }
+
+    AsyncFunction("writeFileToDownloads") { (filename: String, contents: String, _: String?, promise: Promise) in
+      guard !filename.isEmpty else {
+        promise.reject("ERR_INVALID_FILENAME", "Filename cannot be empty.")
+        return
+      }
+
+      do {
+        let temporaryURL = try self.createTemporaryExportFile(named: filename, contents: contents)
+        self.fileExportHandler.presentDocumentPicker(for: temporaryURL, promise: promise)
+      } catch {
+        promise.reject(error)
+      }
+    }.runOnQueue(.main)
 
     AsyncFunction("deleteFile") { (path: String) throws in
       guard FileManager.default.fileExists(atPath: path) else {
@@ -196,5 +225,107 @@ public class ReactNativeFilesystemModule: Module {
     }
 
     try FileManager.default.copyItem(atPath: from, toPath: to)
+  }
+
+  private func createTemporaryExportFile(named filename: String, contents: String) throws -> URL {
+    let exportDirectory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("react-native-filesystem-exports", isDirectory: true)
+
+    try FileManager.default.createDirectory(
+      at: exportDirectory,
+      withIntermediateDirectories: true,
+      attributes: nil
+    )
+
+    let temporaryURL = exportDirectory.appendingPathComponent(filename, isDirectory: false)
+
+    if FileManager.default.fileExists(atPath: temporaryURL.path) {
+      try FileManager.default.removeItem(at: temporaryURL)
+    }
+
+    try contents.write(to: temporaryURL, atomically: true, encoding: .utf8)
+    return temporaryURL
+  }
+}
+
+private final class IOSFileExportHandler: NSObject, UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate {
+  private weak var module: ReactNativeFilesystemModule?
+  private var activePromise: Promise?
+  private var temporaryURL: URL?
+
+  init(module: ReactNativeFilesystemModule) {
+    self.module = module
+  }
+
+  func presentDocumentPicker(for temporaryURL: URL, promise: Promise) {
+    guard activePromise == nil else {
+      cleanupTemporaryFile(at: temporaryURL)
+      promise.reject("ERR_EXPORT_IN_PROGRESS", "Another file export is already in progress.")
+      return
+    }
+
+    guard let currentViewController = module?.appContext?.utilities?.currentViewController() else {
+      cleanupTemporaryFile(at: temporaryURL)
+      promise.reject("ERR_MISSING_VIEW_CONTROLLER", "Unable to present the iOS Files picker.")
+      return
+    }
+
+    let picker = UIDocumentPickerViewController(forExporting: [temporaryURL], asCopy: true)
+    picker.delegate = self
+    picker.presentationController?.delegate = self
+
+    if UIDevice.current.userInterfaceIdiom == .pad {
+      let viewFrame = currentViewController.view.frame
+      picker.popoverPresentationController?.sourceRect = CGRect(
+        x: viewFrame.midX,
+        y: viewFrame.maxY,
+        width: 0,
+        height: 0
+      )
+      picker.popoverPresentationController?.sourceView = currentViewController.view
+      picker.modalPresentationStyle = .pageSheet
+    }
+
+    activePromise = promise
+    self.temporaryURL = temporaryURL
+    currentViewController.present(picker, animated: true)
+  }
+
+  func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+    let promise = activePromise
+    let pickedURL = urls.first
+    finish()
+
+    if let pickedURL {
+      promise?.resolve(pickedURL.path)
+    } else {
+      promise?.reject("ERR_EXPORT_CANCELLED", "File export was cancelled.")
+    }
+  }
+
+  func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+    let promise = activePromise
+    finish()
+    promise?.reject("ERR_EXPORT_CANCELLED", "File export was cancelled.")
+  }
+
+  func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+    let promise = activePromise
+    finish()
+    promise?.reject("ERR_EXPORT_CANCELLED", "File export was cancelled.")
+  }
+
+  private func finish() {
+    cleanupTemporaryFile(at: temporaryURL)
+    temporaryURL = nil
+    activePromise = nil
+  }
+
+  private func cleanupTemporaryFile(at url: URL?) {
+    guard let url else {
+      return
+    }
+
+    try? FileManager.default.removeItem(at: url)
   }
 }

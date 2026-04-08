@@ -44,6 +44,12 @@ describe("ReactNativeFilesystemModule.web", () => {
     );
   });
 
+  it("rejects getDocumentsDirectory on web", async () => {
+    await expect(moduleInstance.getDocumentsDirectory()).rejects.toThrow(
+      unsupportedMessage,
+    );
+  });
+
   it("rejects readFile on web", async () => {
     await expect(moduleInstance.readFile("/tmp/file.txt")).rejects.toThrow(
       unsupportedMessage,
@@ -53,6 +59,12 @@ describe("ReactNativeFilesystemModule.web", () => {
   it("rejects writeFile on web", async () => {
     await expect(
       moduleInstance.writeFile("/tmp/file.txt", "contents"),
+    ).rejects.toThrow(unsupportedMessage);
+  });
+
+  it("rejects writeFileToDownloads on web", async () => {
+    await expect(
+      moduleInstance.writeFileToDownloads("example.txt", "contents", "text/plain"),
     ).rejects.toThrow(unsupportedMessage);
   });
 

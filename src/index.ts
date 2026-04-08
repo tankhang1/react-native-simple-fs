@@ -2,4 +2,5 @@
 // and on native platforms to ReactNativeFilesystemModule.ts
 export { default } from './ReactNativeFilesystemModule';
 export { default as ReactNativeFilesystemView } from './ReactNativeFilesystemView';
+export * from './ReactNativeFilesystemPaths';
 export * from  './ReactNativeFilesystem.types';

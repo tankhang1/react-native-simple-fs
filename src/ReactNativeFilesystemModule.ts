@@ -9,9 +9,11 @@ declare class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesy
   PI: number;
   hello(): string;
   setValueAsync(value: string): Promise<void>;
+  getDocumentsDirectory(): Promise<string>;
   exists(path: string): Promise<boolean>;
   readFile(path: string): Promise<string>;
   writeFile(path: string, contents: string): Promise<void>;
+  writeFileToDownloads(filename: string, contents: string, mimeType?: string): Promise<string>;
   deleteFile(path: string): Promise<void>;
   mkdir(path: string): Promise<void>;
   readdir(path: string): Promise<string[]>;

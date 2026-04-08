@@ -16,6 +16,9 @@ class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesystemModu
   async setValueAsync(value: string): Promise<void> {
     this.emit('onChange', { value });
   }
+  async getDocumentsDirectory(): Promise<string> {
+    unsupported();
+  }
   hello() {
     return 'Hello world! 👋';
   }
@@ -26,6 +29,13 @@ class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesystemModu
     unsupported();
   }
   async writeFile(_path: string, _contents: string): Promise<void> {
+    unsupported();
+  }
+  async writeFileToDownloads(
+    _filename: string,
+    _contents: string,
+    _mimeType?: string
+  ): Promise<string> {
     unsupported();
   }
   async deleteFile(_path: string): Promise<void> {
