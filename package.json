@@ -31,7 +31,7 @@
   },
   "author": "Ethan <doank3442@gmail.com> (https://github.com/tankhang1)",
   "license": "MIT",
-  "homepage": "https://www.npmjs.com/package/react-native-simple-fs",
+  "homepage": "https://github.com/tankhang1/react-native-simple-fs#readme",
   "dependencies": {},
   "devDependencies": {
     "@types/react": "~19.1.1",

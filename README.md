@@ -1,5 +1,9 @@
 # react-native-simple-fs
 
+[![npm version](https://img.shields.io/npm/v/react-native-simple-fs.svg)](https://www.npmjs.com/package/react-native-simple-fs)
+
+Package: https://www.npmjs.com/package/react-native-simple-fs
+
 A cross-platform Expo module for reading, writing, and managing local files in React Native.
 
 This package provides a native filesystem API for iOS and Android, plus typed helpers for resolving common directories such as the app `Documents` folder.
