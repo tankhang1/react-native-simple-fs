@@ -1,6 +1,6 @@
 {
   "name": "react-native-filesystem",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "A cross-platform React Native filesystem module for reading, writing, and managing files on iOS and Android.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
