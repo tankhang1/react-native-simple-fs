@@ -9,6 +9,12 @@ export type ReactNativeFilesystemStat = {
   modificationTime: number | null;
 };
 
+export type ReactNativeFilesystemDownloadResult = {
+  path: string;
+  bytesWritten: number;
+  statusCode: number;
+};
+
 export type OnLoadEventPayload = {
   url: string;
 };

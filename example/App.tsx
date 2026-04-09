@@ -22,6 +22,7 @@ const FALLBACK_FILE_PATH = '/tmp/react-native-filesystem/example.txt';
 const FALLBACK_DIRECTORY_PATH = '/tmp/react-native-filesystem';
 const DEFAULT_CONTENTS = 'Hello from React Native Filesystem';
 const EXAMPLE_FILENAME = 'example.txt';
+const DEFAULT_DOWNLOAD_URL = 'https://www.w3.org/TR/PNG/iso_8859-1.txt';
 
 const DOCUMENTS_DIRECTORY: ReactNativeFilesystemDirectoryDescriptor = {
   kind: ReactNativeFilesystemDirectoryKind.Documents,
@@ -38,6 +39,7 @@ export default function App() {
   const [filePath, setFilePath] = useState(FALLBACK_FILE_PATH);
   const [directoryPath, setDirectoryPath] = useState(FALLBACK_DIRECTORY_PATH);
   const [contents, setContents] = useState(DEFAULT_CONTENTS);
+  const [downloadUrl, setDownloadUrl] = useState(DEFAULT_DOWNLOAD_URL);
   const [status, setStatus] = useState('Ready');
   const [existsResult, setExistsResult] = useState('unknown');
   const [readResult, setReadResult] = useState('none');
@@ -45,6 +47,7 @@ export default function App() {
   const [statResult, setStatResult] = useState('not loaded');
   const [documentsDirectory, setDocumentsDirectory] = useState('not loaded');
   const [downloadsResult, setDownloadsResult] = useState('none');
+  const [downloadResult, setDownloadResult] = useState('none');
   const saveToFilesButtonTitle =
     Platform.OS === 'android' ? 'Write to downloads' : 'Save to Files';
 
@@ -129,6 +132,16 @@ export default function App() {
             style={[styles.input, styles.multilineInput]}
           />
 
+          <Text style={styles.label}>HTTPS URL</Text>
+          <TextInput
+            testID="download-url-input"
+            value={downloadUrl}
+            onChangeText={setDownloadUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.input}
+          />
+
           <View style={styles.buttonGroup}>
             <Button
               title="Use documents directory"
@@ -193,6 +206,19 @@ export default function App() {
               }
             />
             <Button
+              title="Download HTTPS file"
+              onPress={() =>
+                runAction('downloadFile', async () => {
+                  const result = await ReactNativeFilesystem.downloadFile(
+                    downloadUrl,
+                    filePath,
+                  );
+                  setDownloadResult(JSON.stringify(result));
+                  setReadResult(await ReactNativeFilesystem.readFile(filePath));
+                })
+              }
+            />
+            <Button
               title="Delete file"
               onPress={() =>
                 runAction('deleteFile', async () => {
@@ -243,6 +269,7 @@ export default function App() {
           </View>
 
           <Text testID="status-text">Status: {status}</Text>
+          <Text testID="download-result">Download result: {downloadResult}</Text>
           <Text testID="downloads-result">Downloads result: {downloadsResult}</Text>
           <Text testID="exists-result">Exists: {existsResult}</Text>
           <Text testID="read-result">Read result: {readResult}</Text>

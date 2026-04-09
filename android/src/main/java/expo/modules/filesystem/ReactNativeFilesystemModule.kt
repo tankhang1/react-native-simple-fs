@@ -11,7 +11,9 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.exception.Exceptions
 import java.io.File
 import java.io.FileNotFoundException
+import java.io.FileOutputStream
 import java.io.IOException
+import java.net.HttpURLConnection
 import java.net.URL
 import java.util.EnumSet
 
@@ -64,6 +66,11 @@ class ReactNativeFilesystemModule : Module() {
       val file = File(path)
       file.parentFile?.mkdirs()
       file.writeText(contents, Charsets.UTF_8)
+    }
+
+    AsyncFunction("downloadFile") { url: String, destinationPath: String ->
+      validateFileAccess(destinationPath, Permission.WRITE)
+      downloadFile(url, destinationPath)
     }
 
     AsyncFunction("writeFileToDownloads") { filename: String, contents: String, mimeType: String? ->
@@ -212,6 +219,68 @@ class ReactNativeFilesystemModule : Module() {
       "No $permissionName access for path: $path. " +
         "Use getDocumentsDirectory() for app-private files or writeFileToDownloads() for Android Downloads."
     )
+  }
+
+  private fun downloadFile(url: String, destinationPath: String): Map<String, Any> {
+    val parsedUrl = try {
+      URL(url)
+    } catch (error: Exception) {
+      throw IOException("Invalid URL: $url", error)
+    }
+
+    val protocol = parsedUrl.protocol?.lowercase()
+    if (protocol != "https" && protocol != "http") {
+      throw IOException("Only http and https URLs are supported: $url")
+    }
+
+    val destinationFile = File(destinationPath)
+    destinationFile.parentFile?.mkdirs()
+
+    val connection = (parsedUrl.openConnection() as? HttpURLConnection)
+      ?: throw IOException("Unable to open HTTP connection for URL: $url")
+
+    connection.instanceFollowRedirects = true
+    connection.connectTimeout = 15000
+    connection.readTimeout = 30000
+
+    try {
+      connection.connect()
+
+      val statusCode = connection.responseCode
+      if (statusCode !in 200..299) {
+        throw IOException("Download failed with HTTP $statusCode for URL: $url")
+      }
+
+      var bytesWritten = 0L
+      connection.inputStream.use { inputStream ->
+        FileOutputStream(destinationFile).use { outputStream ->
+          val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+          while (true) {
+            val bytesRead = inputStream.read(buffer)
+            if (bytesRead < 0) {
+              break
+            }
+
+            outputStream.write(buffer, 0, bytesRead)
+            bytesWritten += bytesRead.toLong()
+          }
+          outputStream.flush()
+        }
+      }
+
+      return mapOf(
+        "path" to destinationFile.absolutePath,
+        "bytesWritten" to bytesWritten,
+        "statusCode" to statusCode
+      )
+    } catch (error: Exception) {
+      if (destinationFile.exists()) {
+        destinationFile.delete()
+      }
+      throw error
+    } finally {
+      connection.disconnect()
+    }
   }
 
   private fun isContentUri(path: String): Boolean {

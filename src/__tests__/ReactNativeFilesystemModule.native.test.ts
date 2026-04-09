@@ -6,6 +6,7 @@ const mockedNativeModule = {
   exists: jest.fn(),
   readFile: jest.fn(),
   writeFile: jest.fn(),
+  downloadFile: jest.fn(),
   writeFileToDownloads: jest.fn(),
   deleteFile: jest.fn(),
   mkdir: jest.fn(),

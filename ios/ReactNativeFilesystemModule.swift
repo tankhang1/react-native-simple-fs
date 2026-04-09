@@ -54,6 +54,57 @@ public class ReactNativeFilesystemModule: Module {
       try contents.write(to: url, atomically: true, encoding: .utf8)
     }
 
+    AsyncFunction("downloadFile") { (urlString: String, destinationPath: String) async throws -> [String: Any] in
+      let sourceURL = try self.createDownloadSourceURL(from: urlString)
+      let destinationURL = URL(fileURLWithPath: destinationPath)
+
+      try FileManager.default.createDirectory(
+        at: destinationURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true,
+        attributes: nil
+      )
+
+      if FileManager.default.fileExists(atPath: destinationURL.path) {
+        try FileManager.default.removeItem(at: destinationURL)
+      }
+
+      let (temporaryURL, response) = try await URLSession.shared.download(from: sourceURL)
+
+      guard let httpResponse = response as? HTTPURLResponse else {
+        throw NSError(
+          domain: "ReactNativeFilesystem",
+          code: 500,
+          userInfo: [NSLocalizedDescriptionKey: "Expected an HTTP response for URL: \(urlString)"]
+        )
+      }
+
+      guard (200...299).contains(httpResponse.statusCode) else {
+        throw NSError(
+          domain: "ReactNativeFilesystem",
+          code: httpResponse.statusCode,
+          userInfo: [NSLocalizedDescriptionKey: "Download failed with HTTP \(httpResponse.statusCode) for URL: \(urlString)"]
+        )
+      }
+
+      do {
+        try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
+      } catch {
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+          try? FileManager.default.removeItem(at: destinationURL)
+        }
+        throw error
+      }
+
+      let attributes = try FileManager.default.attributesOfItem(atPath: destinationURL.path)
+      let bytesWritten = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+
+      return [
+        "path": destinationURL.path,
+        "bytesWritten": bytesWritten,
+        "statusCode": httpResponse.statusCode
+      ]
+    }
+
     AsyncFunction("writeFileToDownloads") { (filename: String, contents: String, _: String?, promise: Promise) in
       guard !filename.isEmpty else {
         promise.reject("ERR_INVALID_FILENAME", "Filename cannot be empty.")
@@ -203,6 +254,26 @@ public class ReactNativeFilesystemModule: Module {
     }
 
     try FileManager.default.copyItem(atPath: from, toPath: to)
+  }
+
+  private func createDownloadSourceURL(from urlString: String) throws -> URL {
+    guard let url = URL(string: urlString), let scheme = url.scheme?.lowercased() else {
+      throw NSError(
+        domain: "ReactNativeFilesystem",
+        code: 400,
+        userInfo: [NSLocalizedDescriptionKey: "Invalid URL: \(urlString)"]
+      )
+    }
+
+    guard scheme == "https" || scheme == "http" else {
+      throw NSError(
+        domain: "ReactNativeFilesystem",
+        code: 400,
+        userInfo: [NSLocalizedDescriptionKey: "Only http and https URLs are supported: \(urlString)"]
+      )
+    }
+
+    return url
   }
 
   private func createTemporaryExportFile(named filename: String, contents: String) throws -> URL {

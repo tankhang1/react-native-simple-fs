@@ -57,6 +57,15 @@ describe("ReactNativeFilesystemModule.web", () => {
     ).rejects.toThrow(unsupportedMessage);
   });
 
+  it("rejects downloadFile on web", async () => {
+    await expect(
+      moduleInstance.downloadFile(
+        "https://www.w3.org/TR/PNG/iso_8859-1.txt",
+        "/tmp/file.txt",
+      ),
+    ).rejects.toThrow(unsupportedMessage);
+  });
+
   it("rejects deleteFile on web", async () => {
     await expect(moduleInstance.deleteFile("/tmp/file.txt")).rejects.toThrow(
       unsupportedMessage,
