@@ -1,6 +1,7 @@
 import ExpoModulesCore
 import Foundation
 import UIKit
+import UniformTypeIdentifiers
 
 public class ReactNativeFilesystemModule: Module {
   private lazy var fileExportHandler = IOSFileExportHandler(module: self)
@@ -54,20 +55,8 @@ public class ReactNativeFilesystemModule: Module {
       try contents.write(to: url, atomically: true, encoding: .utf8)
     }
 
-    AsyncFunction("downloadFile") { (urlString: String, destinationPath: String) async throws -> [String: Any] in
+    AsyncFunction("downloadFile") { (urlString: String, destinationPath: String, options: [String: Any]?) async throws -> [String: Any] in
       let sourceURL = try self.createDownloadSourceURL(from: urlString)
-      let destinationURL = URL(fileURLWithPath: destinationPath)
-
-      try FileManager.default.createDirectory(
-        at: destinationURL.deletingLastPathComponent(),
-        withIntermediateDirectories: true,
-        attributes: nil
-      )
-
-      if FileManager.default.fileExists(atPath: destinationURL.path) {
-        try FileManager.default.removeItem(at: destinationURL)
-      }
-
       let (temporaryURL, response) = try await URLSession.shared.download(from: sourceURL)
 
       guard let httpResponse = response as? HTTPURLResponse else {
@@ -84,6 +73,22 @@ public class ReactNativeFilesystemModule: Module {
           code: httpResponse.statusCode,
           userInfo: [NSLocalizedDescriptionKey: "Download failed with HTTP \(httpResponse.statusCode) for URL: \(urlString)"]
         )
+      }
+
+      let destinationURL = self.resolveDownloadDestinationURL(
+        from: URL(fileURLWithPath: destinationPath),
+        response: httpResponse,
+        explicitMimeType: options?["mimeType"] as? String
+      )
+
+      try FileManager.default.createDirectory(
+        at: destinationURL.deletingLastPathComponent(),
+        withIntermediateDirectories: true,
+        attributes: nil
+      )
+
+      if FileManager.default.fileExists(atPath: destinationURL.path) {
+        try FileManager.default.removeItem(at: destinationURL)
       }
 
       do {
@@ -105,14 +110,18 @@ public class ReactNativeFilesystemModule: Module {
       ]
     }
 
-    AsyncFunction("writeFileToDownloads") { (filename: String, contents: String, _: String?, promise: Promise) in
+    AsyncFunction("writeFileToDownloads") { (filename: String, contents: String, mimeType: String?, promise: Promise) in
       guard !filename.isEmpty else {
         promise.reject("ERR_INVALID_FILENAME", "Filename cannot be empty.")
         return
       }
 
       do {
-        let temporaryURL = try self.createTemporaryExportFile(named: filename, contents: contents)
+        let temporaryURL = try self.createTemporaryExportFile(
+          named: filename,
+          contents: contents,
+          mimeType: mimeType
+        )
         self.fileExportHandler.presentDocumentPicker(for: temporaryURL, promise: promise)
       } catch {
         promise.reject(error)
@@ -276,7 +285,7 @@ public class ReactNativeFilesystemModule: Module {
     return url
   }
 
-  private func createTemporaryExportFile(named filename: String, contents: String) throws -> URL {
+  private func createTemporaryExportFile(named filename: String, contents: String, mimeType: String?) throws -> URL {
     let exportDirectory = FileManager.default.temporaryDirectory
       .appendingPathComponent("react-native-filesystem-exports", isDirectory: true)
 
@@ -286,14 +295,72 @@ public class ReactNativeFilesystemModule: Module {
       attributes: nil
     )
 
-    let temporaryURL = exportDirectory.appendingPathComponent(filename, isDirectory: false)
+    let resolvedFilename = resolveFilename(filename, explicitMimeType: mimeType)
+    let temporaryURL = exportDirectory.appendingPathComponent(resolvedFilename, isDirectory: false)
 
     if FileManager.default.fileExists(atPath: temporaryURL.path) {
       try FileManager.default.removeItem(at: temporaryURL)
     }
 
     try contents.write(to: temporaryURL, atomically: true, encoding: .utf8)
+
     return temporaryURL
+  }
+
+  private func resolveDownloadDestinationURL(
+    from destinationURL: URL,
+    response: HTTPURLResponse,
+    explicitMimeType: String?
+  ) -> URL {
+    guard destinationURL.pathExtension.isEmpty else {
+      return destinationURL
+    }
+
+    let inferredExtension =
+      preferredFilenameExtension(for: explicitMimeType)
+      ?? URL(fileURLWithPath: response.suggestedFilename ?? "").pathExtension.nilIfEmpty
+      ?? preferredFilenameExtension(for: response.mimeType)
+
+    guard let inferredExtension else {
+      return destinationURL
+    }
+
+    return destinationURL.appendingPathExtension(inferredExtension)
+  }
+
+  private func resolveFilename(_ filename: String, explicitMimeType: String?) -> String {
+    guard URL(fileURLWithPath: filename).pathExtension.isEmpty,
+          let inferredExtension = preferredFilenameExtension(for: explicitMimeType) else {
+      return filename
+    }
+
+    return "\(filename).\(inferredExtension)"
+  }
+
+  private func preferredFilenameExtension(for mimeType: String?) -> String? {
+    guard let contentType = contentType(for: mimeType) else {
+      return nil
+    }
+
+    return contentType.preferredFilenameExtension
+  }
+
+  private func contentType(for mimeType: String?) -> UTType? {
+    guard let rawMimeType = mimeType?
+      .split(separator: ";", maxSplits: 1, omittingEmptySubsequences: true)
+      .first?
+      .trimmingCharacters(in: .whitespacesAndNewlines),
+      !rawMimeType.isEmpty else {
+      return nil
+    }
+
+    return UTType(mimeType: rawMimeType)
+  }
+}
+
+private extension String {
+  var nilIfEmpty: String? {
+    isEmpty ? nil : self
   }
 }
 

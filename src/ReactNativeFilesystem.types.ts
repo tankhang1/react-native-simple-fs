@@ -15,6 +15,27 @@ export type ReactNativeFilesystemDownloadResult = {
   statusCode: number;
 };
 
+export type ReactNativeFilesystemDownloadOptions = {
+  mimeType?: string;
+};
+
+export const ReactNativeFilesystemCommonMimeTypes = {
+  Csv: 'text/csv',
+  Gif: 'image/gif',
+  Html: 'text/html',
+  Jpeg: 'image/jpeg',
+  Json: 'application/json',
+  Pdf: 'application/pdf',
+  Png: 'image/png',
+  Text: 'text/plain',
+  Webp: 'image/webp',
+  Xml: 'application/xml',
+  Zip: 'application/zip',
+} as const;
+
+export type ReactNativeFilesystemCommonMimeType =
+  (typeof ReactNativeFilesystemCommonMimeTypes)[keyof typeof ReactNativeFilesystemCommonMimeTypes];
+
 export type OnLoadEventPayload = {
   url: string;
 };

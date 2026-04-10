@@ -521,14 +521,15 @@ Writes UTF-8 text to a file.
 await ReactNativeFilesystem.writeFile(filePath, 'Hello from file');
 ```
 
-### `downloadFile(url, destinationPath)`
+### `downloadFile(url, destinationPath, options?)`
 
 Downloads a remote file into a local destination path.
 
 ```ts
 const result = await ReactNativeFilesystem.downloadFile(
   'https://www.w3.org/TR/PNG/iso_8859-1.txt',
-  filePath
+  filePath,
+  { mimeType: 'text/plain' }
 );
 ```
 
@@ -537,6 +538,7 @@ Behavior:
 - supports `http` and `https`
 - creates parent directories automatically
 - overwrites the destination file if it already exists
+- if `destinationPath` has no extension, the module tries to infer one from `options.mimeType`, the server's suggested filename, or the response MIME type
 - returns `{ path, bytesWritten, statusCode }`
 
 ### `writeFileToDownloads(filename, contents, mimeType?)`
@@ -548,6 +550,20 @@ const savedPath = await ReactNativeFilesystem.writeFileToDownloads(
   'export.json',
   JSON.stringify({ ok: true }, null, 2),
   'application/json'
+);
+```
+
+Common MIME constants are also exported:
+
+```ts
+import {
+  ReactNativeFilesystemCommonMimeTypes,
+} from 'react-native-filesystem';
+
+await ReactNativeFilesystem.writeFileToDownloads(
+  'report',
+  contents,
+  ReactNativeFilesystemCommonMimeTypes.Pdf
 );
 ```
 

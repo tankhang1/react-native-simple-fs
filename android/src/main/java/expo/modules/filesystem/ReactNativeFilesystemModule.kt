@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.webkit.MimeTypeMap
 import expo.modules.interfaces.filesystem.Permission
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -68,9 +69,9 @@ class ReactNativeFilesystemModule : Module() {
       file.writeText(contents, Charsets.UTF_8)
     }
 
-    AsyncFunction("downloadFile") { url: String, destinationPath: String ->
+    AsyncFunction("downloadFile") { url: String, destinationPath: String, options: Map<String, Any>? ->
       validateFileAccess(destinationPath, Permission.WRITE)
-      downloadFile(url, destinationPath)
+      downloadFile(url, destinationPath, options?.get("mimeType") as? String)
     }
 
     AsyncFunction("writeFileToDownloads") { filename: String, contents: String, mimeType: String? ->
@@ -221,7 +222,7 @@ class ReactNativeFilesystemModule : Module() {
     )
   }
 
-  private fun downloadFile(url: String, destinationPath: String): Map<String, Any> {
+  private fun downloadFile(url: String, destinationPath: String, mimeType: String?): Map<String, Any> {
     val parsedUrl = try {
       URL(url)
     } catch (error: Exception) {
@@ -233,15 +234,13 @@ class ReactNativeFilesystemModule : Module() {
       throw IOException("Only http and https URLs are supported: $url")
     }
 
-    val destinationFile = File(destinationPath)
-    destinationFile.parentFile?.mkdirs()
-
     val connection = (parsedUrl.openConnection() as? HttpURLConnection)
       ?: throw IOException("Unable to open HTTP connection for URL: $url")
 
     connection.instanceFollowRedirects = true
     connection.connectTimeout = 15000
     connection.readTimeout = 30000
+    var destinationFile = File(destinationPath)
 
     try {
       connection.connect()
@@ -250,6 +249,14 @@ class ReactNativeFilesystemModule : Module() {
       if (statusCode !in 200..299) {
         throw IOException("Download failed with HTTP $statusCode for URL: $url")
       }
+
+      destinationFile = resolveDownloadTarget(
+        destinationPath = destinationPath,
+        explicitMimeType = mimeType,
+        suggestedFilename = connection.getHeaderField("Content-Disposition"),
+        responseMimeType = connection.contentType
+      )
+      destinationFile.parentFile?.mkdirs()
 
       var bytesWritten = 0L
       connection.inputStream.use { inputStream ->
@@ -281,6 +288,46 @@ class ReactNativeFilesystemModule : Module() {
     } finally {
       connection.disconnect()
     }
+  }
+
+  private fun resolveDownloadTarget(
+    destinationPath: String,
+    explicitMimeType: String?,
+    suggestedFilename: String?,
+    responseMimeType: String?
+  ): File {
+    val destinationFile = File(destinationPath)
+    if (destinationFile.extension.isNotEmpty()) {
+      return destinationFile
+    }
+
+    val inferredExtension = extensionFromMimeType(explicitMimeType)
+      ?: extensionFromContentDisposition(suggestedFilename)
+      ?: extensionFromMimeType(responseMimeType)
+
+    if (inferredExtension.isNullOrEmpty()) {
+      return destinationFile
+    }
+
+    return File(destinationFile.parentFile, "${destinationFile.name}.$inferredExtension")
+  }
+
+  private fun extensionFromContentDisposition(contentDisposition: String?): String? {
+    val filename = contentDisposition
+      ?.split(';')
+      ?.map { it.trim() }
+      ?.firstOrNull { it.startsWith("filename=", ignoreCase = true) }
+      ?.substringAfter('=')
+      ?.trim('"')
+      ?: return null
+
+    val extension = filename.substringAfterLast('.', "")
+    return extension.ifEmpty { null }
+  }
+
+  private fun extensionFromMimeType(mimeType: String?): String? {
+    val sanitizedMimeType = mimeType?.substringBefore(';')?.trim()?.lowercase()
+    return sanitizedMimeType?.let { MimeTypeMap.getSingleton().getExtensionFromMimeType(it) }
   }
 
   private fun isContentUri(path: String): Boolean {

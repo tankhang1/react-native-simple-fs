@@ -1,6 +1,7 @@
 import { registerWebModule, NativeModule } from 'expo';
 
 import {
+  ReactNativeFilesystemDownloadOptions,
   ReactNativeFilesystemDownloadResult,
   ReactNativeFilesystemModuleEvents,
   ReactNativeFilesystemStat,
@@ -27,7 +28,8 @@ class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesystemModu
   }
   async downloadFile(
     _url: string,
-    _destinationPath: string
+    _destinationPath: string,
+    _options?: ReactNativeFilesystemDownloadOptions
   ): Promise<ReactNativeFilesystemDownloadResult> {
     unsupported();
   }

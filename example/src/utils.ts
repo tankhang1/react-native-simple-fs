@@ -1,5 +1,60 @@
-import { ReactNativeFilesystemDirectoryKind, type ReactNativeFilesystemDirectoryDescriptor } from 'react-native-filesystem';
+import {
+  ReactNativeFilesystemCommonMimeTypes,
+  ReactNativeFilesystemDirectoryKind,
+  type ReactNativeFilesystemDirectoryDescriptor,
+} from 'react-native-filesystem';
 import type { DemoMode } from './types';
+
+const EXTENSION_TO_MIME_TYPE: Record<string, string> = {
+  csv: ReactNativeFilesystemCommonMimeTypes.Csv,
+  gif: ReactNativeFilesystemCommonMimeTypes.Gif,
+  htm: ReactNativeFilesystemCommonMimeTypes.Html,
+  html: ReactNativeFilesystemCommonMimeTypes.Html,
+  jpeg: ReactNativeFilesystemCommonMimeTypes.Jpeg,
+  jpg: ReactNativeFilesystemCommonMimeTypes.Jpeg,
+  json: ReactNativeFilesystemCommonMimeTypes.Json,
+  pdf: ReactNativeFilesystemCommonMimeTypes.Pdf,
+  png: ReactNativeFilesystemCommonMimeTypes.Png,
+  txt: ReactNativeFilesystemCommonMimeTypes.Text,
+  webp: ReactNativeFilesystemCommonMimeTypes.Webp,
+  xml: ReactNativeFilesystemCommonMimeTypes.Xml,
+  zip: ReactNativeFilesystemCommonMimeTypes.Zip,
+};
+
+function getExtension(value: string): string | null {
+  const sanitizedValue = value.split('?')[0]?.split('#')[0] ?? value;
+  const lastSegment = sanitizedValue.split('/').pop() ?? '';
+  const extension = lastSegment.split('.').pop()?.toLowerCase();
+
+  if (!extension || extension === lastSegment.toLowerCase()) {
+    return null;
+  }
+
+  return extension;
+}
+
+const TEXT_READABLE_EXTENSIONS = new Set([
+  "csv",
+  "htm",
+  "html",
+  "json",
+  "txt",
+  "xml",
+]);
+
+function inferMimeType(filePath: string, downloadUrl: string): string | null {
+  const filePathExtension = getExtension(filePath);
+  if (filePathExtension) {
+    return null;
+  }
+
+  const downloadUrlExtension = getExtension(downloadUrl);
+  if (!downloadUrlExtension) {
+    return null;
+  }
+
+  return EXTENSION_TO_MIME_TYPE[downloadUrlExtension] ?? null;
+}
 
 export function createCustomDirectory(path: string): ReactNativeFilesystemDirectoryDescriptor {
   return {
@@ -36,14 +91,22 @@ export function getStatusTone(status: string) {
 }
 
 export function createSnippet(filePath: string, downloadUrl: string) {
+  const inferredMimeType = inferMimeType(filePath, downloadUrl);
+
   return [
     "import ReactNativeFilesystem from 'react-native-filesystem';",
     '',
     'await ReactNativeFilesystem.downloadFile(',
     `  '${downloadUrl}',`,
     `  '${filePath}',`,
+    ...(inferredMimeType ? [`  { mimeType: '${inferredMimeType}' },`] : []),
     ');',
   ].join('\n');
+}
+
+export function isTextReadableFile(path: string) {
+  const extension = getExtension(path);
+  return extension ? TEXT_READABLE_EXTENSIONS.has(extension) : false;
 }
 
 export function getModeMeta(mode: DemoMode) {

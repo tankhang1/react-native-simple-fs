@@ -1,6 +1,7 @@
 import { NativeModule, requireNativeModule } from 'expo';
 
 import {
+  ReactNativeFilesystemDownloadOptions,
   ReactNativeFilesystemDownloadResult,
   ReactNativeFilesystemModuleEvents,
   ReactNativeFilesystemStat,
@@ -11,7 +12,11 @@ declare class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesy
   exists(path: string): Promise<boolean>;
   readFile(path: string): Promise<string>;
   writeFile(path: string, contents: string): Promise<void>;
-  downloadFile(url: string, destinationPath: string): Promise<ReactNativeFilesystemDownloadResult>;
+  downloadFile(
+    url: string,
+    destinationPath: string,
+    options?: ReactNativeFilesystemDownloadOptions
+  ): Promise<ReactNativeFilesystemDownloadResult>;
   writeFileToDownloads(filename: string, contents: string, mimeType?: string): Promise<string>;
   deleteFile(path: string): Promise<void>;
   mkdir(path: string): Promise<void>;
