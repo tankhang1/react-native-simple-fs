@@ -18,6 +18,12 @@ This package helps you:
 
 Package: https://www.npmjs.com/package/react-native-simple-fs
 
+## Demo
+
+<video src="./android.mov" controls muted playsinline width="360"></video>
+
+If the video player does not render in your viewer, open [android.mov](/Users/khang/Documents/Nexa/react-native-simple-fs/android.mov).
+
 ## Compatibility
 
 ### Can I use it with these React Native setups?
