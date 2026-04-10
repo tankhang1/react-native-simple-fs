@@ -509,6 +509,8 @@ const exists = await ReactNativeFilesystem.exists(filePath);
 
 Reads a UTF-8 text file.
 
+Do not use this for binary files such as PDFs, images, videos, or zip files.
+
 ```ts
 const contents = await ReactNativeFilesystem.readFile(filePath);
 ```
@@ -526,10 +528,14 @@ await ReactNativeFilesystem.writeFile(filePath, 'Hello from file');
 Downloads a remote file into a local destination path.
 
 ```ts
+import ReactNativeFilesystem, {
+  ReactNativeFilesystemCommonMimeTypes,
+} from 'react-native-simple-fs';
+
 const result = await ReactNativeFilesystem.downloadFile(
-  'https://www.w3.org/TR/PNG/iso_8859-1.txt',
+  'https://pdfobject.com/pdf/sample.pdf',
   filePath,
-  { mimeType: 'text/plain' }
+  { mimeType: ReactNativeFilesystemCommonMimeTypes.Pdf }
 );
 ```
 
@@ -539,6 +545,8 @@ Behavior:
 - creates parent directories automatically
 - overwrites the destination file if it already exists
 - if `destinationPath` has no extension, the module tries to infer one from `options.mimeType`, the server's suggested filename, or the response MIME type
+- works for text and binary downloads
+- for binary files, use the returned `result.path` and do not pass the file into `readFile()`
 - returns `{ path, bytesWritten, statusCode }`
 
 ### `writeFileToDownloads(filename, contents, mimeType?)`
@@ -558,12 +566,22 @@ Common MIME constants are also exported:
 ```ts
 import {
   ReactNativeFilesystemCommonMimeTypes,
-} from 'react-native-filesystem';
+} from 'react-native-simple-fs';
 
 await ReactNativeFilesystem.writeFileToDownloads(
   'report',
   contents,
   ReactNativeFilesystemCommonMimeTypes.Pdf
+);
+```
+
+You can also use the same constants with `downloadFile()`:
+
+```ts
+const result = await ReactNativeFilesystem.downloadFile(
+  url,
+  destinationPath,
+  { mimeType: ReactNativeFilesystemCommonMimeTypes.Pdf }
 );
 ```
 
