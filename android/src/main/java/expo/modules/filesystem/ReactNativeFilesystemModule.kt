@@ -1,6 +1,8 @@
 package expo.modules.filesystem
 
+import android.content.ContentUris
 import android.content.ContentValues
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -18,6 +20,8 @@ import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.EnumSet
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class ReactNativeFilesystemModule : Module() {
   private data class DownloadTarget(
@@ -76,6 +80,18 @@ class ReactNativeFilesystemModule : Module() {
       val file = File(path)
       file.parentFile?.mkdirs()
       file.writeText(contents, Charsets.UTF_8)
+    }
+
+    AsyncFunction("saveImageToLibrary") { path: String, options: Map<String, Any>? ->
+      saveImageToLibrary(
+        path = path,
+        filename = options?.get("filename") as? String,
+        mimeType = options?.get("mimeType") as? String
+      )
+    }
+
+    AsyncFunction("getImages") { options: Map<String, Any>? ->
+      getImages((options?.get("limit") as? Number)?.toInt())
     }
 
     AsyncFunction("downloadFile") { url: String, destinationPath: String, options: Map<String, Any>? ->
@@ -632,6 +648,115 @@ class ReactNativeFilesystemModule : Module() {
     return file.absolutePath
   }
 
+  private fun saveImageToLibrary(
+    path: String,
+    filename: String?,
+    mimeType: String?
+  ): Map<String, Any?> {
+    val sourceUri = path.takeIf(::isContentUri)?.let(Uri::parse)
+    if (sourceUri == null) {
+      validateFileAccess(path, Permission.READ)
+    }
+
+    val resolvedFilename = filename
+      ?.trim()
+      ?.takeIf { it.isNotEmpty() }
+      ?: inferImageFilename(path, sourceUri)
+      ?: "image_${System.currentTimeMillis()}"
+    val resolvedMimeType = sanitizeMimeType(mimeType)
+      ?: sourceUri?.let(context.contentResolver::getType)?.let(::sanitizeMimeType)
+      ?: mimeTypeFromPath(path)
+      ?: "image/*"
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      val values = ContentValues().apply {
+        put(MediaStore.MediaColumns.DISPLAY_NAME, resolvedFilename)
+        put(MediaStore.MediaColumns.MIME_TYPE, resolvedMimeType)
+        put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES)
+        put(MediaStore.MediaColumns.IS_PENDING, 1)
+      }
+
+      val uri = context.contentResolver.insert(
+        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+        values
+      ) ?: throw IOException("Unable to create an image library entry for $resolvedFilename")
+
+      try {
+        copyPathToUri(path, uri)
+        val completionValues = ContentValues().apply {
+          put(MediaStore.MediaColumns.IS_PENDING, 0)
+        }
+        context.contentResolver.update(uri, completionValues, null, null)
+        return statImageUri(uri)
+      } catch (error: Exception) {
+        context.contentResolver.delete(uri, null, null)
+        throw error
+      }
+    }
+
+    ensureLegacyExternalStoragePermission(EnumSet.of(Permission.WRITE))
+    @Suppress("DEPRECATION")
+    val picturesDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+    val destinationFile = File(picturesDirectory, resolvedFilename)
+    destinationFile.parentFile?.mkdirs()
+
+    try {
+      copyPathToFile(path, destinationFile)
+      val scannedUri = scanLegacyMediaFile(destinationFile, resolvedMimeType)
+      return if (scannedUri != null) {
+        statImageUri(scannedUri)
+      } else {
+        mapOf(
+          "id" to destinationFile.absolutePath,
+          "uri" to destinationFile.absolutePath,
+          "filename" to destinationFile.name,
+          "width" to null,
+          "height" to null,
+          "mimeType" to resolvedMimeType,
+          "size" to destinationFile.length(),
+          "creationTime" to (destinationFile.lastModified().toDouble() / 1000.0),
+          "modificationTime" to (destinationFile.lastModified().toDouble() / 1000.0)
+        )
+      }
+    } catch (error: Exception) {
+      if (destinationFile.exists()) {
+        destinationFile.delete()
+      }
+      throw error
+    }
+  }
+
+  private fun getImages(limit: Int?): List<Map<String, Any?>> {
+    ensureImageReadPermission()
+
+    val projection = arrayOf(
+      MediaStore.Images.Media._ID,
+      MediaStore.Images.Media.DISPLAY_NAME,
+      MediaStore.Images.Media.MIME_TYPE,
+      MediaStore.Images.Media.WIDTH,
+      MediaStore.Images.Media.HEIGHT,
+      MediaStore.Images.Media.SIZE,
+      MediaStore.Images.Media.DATE_ADDED,
+      MediaStore.Images.Media.DATE_MODIFIED
+    )
+    val resolvedLimit = (limit ?: 50).coerceAtLeast(1)
+    val images = mutableListOf<Map<String, Any?>>()
+
+    context.contentResolver.query(
+      MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+      projection,
+      null,
+      null,
+      "${MediaStore.Images.Media.DATE_ADDED} DESC"
+    )?.use { cursor ->
+      while (cursor.moveToNext() && images.size < resolvedLimit) {
+        images.add(imageAssetFromCursor(cursor))
+      }
+    }
+
+    return images
+  }
+
   private fun ensureLegacyExternalStoragePermission(requiredPermissions: EnumSet<Permission>) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       return
@@ -656,6 +781,175 @@ class ReactNativeFilesystemModule : Module() {
           "Request it from the app before using legacy public storage paths."
       )
     }
+  }
+
+  private fun ensureImageReadPermission() {
+    val permissionsModule = appContext.permissions
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      if (permissionsModule?.hasGrantedPermissions(android.Manifest.permission.READ_MEDIA_IMAGES) != true) {
+        throw IOException(
+          "Missing Android READ_MEDIA_IMAGES permission. Request it from the app before calling getImages()."
+        )
+      }
+      return
+    }
+
+    ensureLegacyExternalStoragePermission(EnumSet.of(Permission.READ))
+  }
+
+  private fun copyPathToUri(path: String, destinationUri: Uri) {
+    openInputStreamForPath(path).use { inputStream ->
+      context.contentResolver.openOutputStream(destinationUri, "w")?.use { outputStream ->
+        inputStream.copyTo(outputStream)
+        outputStream.flush()
+      } ?: throw IOException("Unable to open destination URI for writing: $destinationUri")
+    }
+  }
+
+  private fun copyPathToFile(path: String, destinationFile: File) {
+    openInputStreamForPath(path).use { inputStream ->
+      destinationFile.outputStream().use { outputStream ->
+        inputStream.copyTo(outputStream)
+        outputStream.flush()
+      }
+    }
+  }
+
+  private fun openInputStreamForPath(path: String) =
+    if (isContentUri(path)) {
+      context.contentResolver.openInputStream(Uri.parse(path))
+        ?: throw IOException("Unable to open content URI for reading: $path")
+    } else {
+      val file = File(path)
+      if (!file.exists()) {
+        throw IOException("File does not exist at path: $path")
+      }
+      file.inputStream()
+    }
+
+  private fun inferImageFilename(path: String, sourceUri: Uri?): String? {
+    val fileNameFromPath = File(path).name.takeIf { it.isNotEmpty() && it != "/" }
+    if (!fileNameFromPath.isNullOrEmpty() && !isContentUri(path)) {
+      return fileNameFromPath
+    }
+
+    if (sourceUri == null) {
+      return null
+    }
+
+    return queryMediaString(sourceUri, MediaStore.MediaColumns.DISPLAY_NAME)
+  }
+
+  private fun mimeTypeFromPath(path: String): String? {
+    val extension = File(path).extension.ifEmpty { return null }
+    return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.lowercase())
+  }
+
+  private fun scanLegacyMediaFile(file: File, mimeType: String?): Uri? {
+    val latch = CountDownLatch(1)
+    var scannedUri: Uri? = null
+    MediaScannerConnection.scanFile(
+      context,
+      arrayOf(file.absolutePath),
+      arrayOf(mimeType),
+      { _, uri ->
+        scannedUri = uri
+        latch.countDown()
+      }
+    )
+    latch.await(5, TimeUnit.SECONDS)
+    return scannedUri
+  }
+
+  private fun statImageUri(uri: Uri): Map<String, Any?> {
+    context.contentResolver.query(
+      uri,
+      arrayOf(
+        MediaStore.Images.Media._ID,
+        MediaStore.Images.Media.DISPLAY_NAME,
+        MediaStore.Images.Media.MIME_TYPE,
+        MediaStore.Images.Media.WIDTH,
+        MediaStore.Images.Media.HEIGHT,
+        MediaStore.Images.Media.SIZE,
+        MediaStore.Images.Media.DATE_ADDED,
+        MediaStore.Images.Media.DATE_MODIFIED
+      ),
+      null,
+      null,
+      null
+    )?.use { cursor ->
+      if (cursor.moveToFirst()) {
+        return imageAssetFromCursor(cursor, uri)
+      }
+    }
+
+    return mapOf(
+      "id" to uri.toString(),
+      "uri" to uri.toString(),
+      "previewUri" to uri.toString(),
+      "filename" to null,
+      "width" to null,
+      "height" to null,
+      "mimeType" to null,
+      "size" to null,
+      "creationTime" to null,
+      "modificationTime" to null
+    )
+  }
+
+  private fun imageAssetFromCursor(cursor: android.database.Cursor, explicitUri: Uri? = null): Map<String, Any?> {
+    val id = cursor.getColumnIndex(MediaStore.Images.Media._ID)
+      .takeIf { it >= 0 }
+      ?.let(cursor::getLong)
+    val uri = explicitUri ?: id?.let { ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, it) }
+
+    return mapOf(
+      "id" to (id?.toString() ?: uri?.toString()),
+      "uri" to uri?.toString(),
+      "previewUri" to uri?.toString(),
+      "filename" to getCursorString(cursor, MediaStore.Images.Media.DISPLAY_NAME),
+      "width" to getCursorInt(cursor, MediaStore.Images.Media.WIDTH),
+      "height" to getCursorInt(cursor, MediaStore.Images.Media.HEIGHT),
+      "mimeType" to getCursorString(cursor, MediaStore.Images.Media.MIME_TYPE),
+      "size" to getCursorLong(cursor, MediaStore.Images.Media.SIZE),
+      "creationTime" to getCursorLong(cursor, MediaStore.Images.Media.DATE_ADDED)?.toDouble(),
+      "modificationTime" to getCursorLong(cursor, MediaStore.Images.Media.DATE_MODIFIED)?.toDouble()
+    )
+  }
+
+  private fun queryMediaString(uri: Uri, columnName: String): String? {
+    context.contentResolver.query(uri, arrayOf(columnName), null, null, null)?.use { cursor ->
+      if (cursor.moveToFirst()) {
+        return getCursorString(cursor, columnName)
+      }
+    }
+
+    return null
+  }
+
+  private fun getCursorString(cursor: android.database.Cursor, columnName: String): String? {
+    val columnIndex = cursor.getColumnIndex(columnName)
+    if (columnIndex < 0 || cursor.isNull(columnIndex)) {
+      return null
+    }
+    return cursor.getString(columnIndex)
+  }
+
+  private fun getCursorInt(cursor: android.database.Cursor, columnName: String): Int? {
+    val columnIndex = cursor.getColumnIndex(columnName)
+    if (columnIndex < 0 || cursor.isNull(columnIndex)) {
+      return null
+    }
+    return cursor.getInt(columnIndex)
+  }
+
+  private fun getCursorLong(cursor: android.database.Cursor, columnName: String): Long? {
+    val columnIndex = cursor.getColumnIndex(columnName)
+    if (columnIndex < 0 || cursor.isNull(columnIndex)) {
+      return null
+    }
+    return cursor.getLong(columnIndex)
   }
 
   private fun deleteRecursively(file: File): Boolean {

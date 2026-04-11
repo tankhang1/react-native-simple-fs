@@ -31,6 +31,28 @@ export type ReactNativeFilesystemDownloadOptions = {
   saveToDownloads?: boolean;
 };
 
+export type ReactNativeFilesystemImageAsset = {
+  id: string;
+  uri: string;
+  previewUri?: string | null;
+  filename: string | null;
+  width: number | null;
+  height: number | null;
+  mimeType: string | null;
+  size: number | null;
+  creationTime: number | null;
+  modificationTime: number | null;
+};
+
+export type ReactNativeFilesystemSaveImageOptions = {
+  filename?: string;
+  mimeType?: string;
+};
+
+export type ReactNativeFilesystemGetImagesOptions = {
+  limit?: number;
+};
+
 export const ReactNativeFilesystemCommonMimeTypes = {
   Csv: 'text/csv',
   Gif: 'image/gif',

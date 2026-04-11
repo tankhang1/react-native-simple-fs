@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import Foundation
+import Photos
 import UIKit
 import UniformTypeIdentifiers
 
@@ -59,6 +60,48 @@ public class ReactNativeFilesystemModule: Module {
         attributes: nil
       )
       try contents.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    AsyncFunction("saveImageToLibrary") { (path: String, options: [String: Any]?) async throws -> [String: Any?] in
+      try await self.ensurePhotoLibraryAccess(level: .addOnly)
+
+      let sourceURL = try self.resolveLocalFileURL(from: path)
+      guard FileManager.default.fileExists(atPath: sourceURL.path) else {
+        throw NSError(
+          domain: "ReactNativeFilesystem",
+          code: 404,
+          userInfo: [NSLocalizedDescriptionKey: "File does not exist at path: \(path)"]
+        )
+      }
+
+      let localIdentifier = try await self.createPhotoAsset(
+        from: sourceURL,
+        filename: options?["filename"] as? String
+      )
+      let asset = try self.fetchPhotoAsset(localIdentifier: localIdentifier)
+      return self.serializeImageAsset(asset)
+    }
+
+    AsyncFunction("getImages") { (options: [String: Any]?) async throws -> [[String: Any?]] in
+      try await self.ensurePhotoLibraryAccess(level: .readWrite)
+
+      let fetchOptions = PHFetchOptions()
+      fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+      if let limit = (options?["limit"] as? NSNumber)?.intValue, limit > 0 {
+        fetchOptions.fetchLimit = limit
+      } else {
+        fetchOptions.fetchLimit = 50
+      }
+
+      let assets = PHAsset.fetchAssets(with: .image, options: fetchOptions)
+      var results: [[String: Any?]] = []
+      results.reserveCapacity(assets.count)
+
+      assets.enumerateObjects { asset, _, _ in
+        results.append(self.serializeImageAsset(asset))
+      }
+
+      return results
     }
 
     AsyncFunction("downloadFile") { (urlString: String, destinationPath: String, options: [String: Any]?) async throws -> [String: Any] in
@@ -358,6 +401,171 @@ public class ReactNativeFilesystemModule: Module {
     }
 
     return url
+  }
+
+  private func ensurePhotoLibraryAccess(level: PHAccessLevel) async throws {
+    let currentStatus = PHPhotoLibrary.authorizationStatus(for: level)
+    if currentStatus == .authorized || currentStatus == .limited {
+      return
+    }
+
+    let status = await withCheckedContinuation { continuation in
+      PHPhotoLibrary.requestAuthorization(for: level) { authorizationStatus in
+        continuation.resume(returning: authorizationStatus)
+      }
+    }
+    if status == .authorized || status == .limited {
+      return
+    }
+
+    throw NSError(
+      domain: "ReactNativeFilesystem",
+      code: 403,
+      userInfo: [
+        NSLocalizedDescriptionKey:
+          level == .addOnly
+            ? "Photo library add permission was denied. Add NSPhotoLibraryAddUsageDescription and allow access before calling saveImageToLibrary()."
+            : "Photo library read permission was denied. Add NSPhotoLibraryUsageDescription and allow access before calling getImages()."
+      ]
+    )
+  }
+
+  private func resolveLocalFileURL(from path: String) throws -> URL {
+    if path.hasPrefix("file://"), let url = URL(string: path), url.isFileURL {
+      return url
+    }
+
+    let url = URL(fileURLWithPath: path)
+    if url.isFileURL {
+      return url
+    }
+
+    throw NSError(
+      domain: "ReactNativeFilesystem",
+      code: 400,
+      userInfo: [NSLocalizedDescriptionKey: "Only local file paths are supported for saveImageToLibrary on iOS."]
+    )
+  }
+
+  private func createPhotoAsset(from fileURL: URL, filename: String?) async throws -> String {
+    try await withCheckedThrowingContinuation { continuation in
+      var placeholderIdentifier: String?
+
+      PHPhotoLibrary.shared().performChanges {
+        let creationRequest = PHAssetCreationRequest.forAsset()
+        let resourceOptions = PHAssetResourceCreationOptions()
+        if let filename, !filename.isEmpty {
+          resourceOptions.originalFilename = filename
+        }
+
+        creationRequest.addResource(with: .photo, fileURL: fileURL, options: resourceOptions)
+        placeholderIdentifier = creationRequest.placeholderForCreatedAsset?.localIdentifier
+      } completionHandler: { success, error in
+        if let error {
+          continuation.resume(throwing: error)
+          return
+        }
+
+        guard success, let placeholderIdentifier else {
+          continuation.resume(
+            throwing: NSError(
+              domain: "ReactNativeFilesystem",
+              code: 500,
+              userInfo: [NSLocalizedDescriptionKey: "Unable to save the image to the photo library."]
+            )
+          )
+          return
+        }
+
+        continuation.resume(returning: placeholderIdentifier)
+      }
+    }
+  }
+
+  private func fetchPhotoAsset(localIdentifier: String) throws -> PHAsset {
+    let assets = PHAsset.fetchAssets(withLocalIdentifiers: [localIdentifier], options: nil)
+    guard let asset = assets.firstObject else {
+      throw NSError(
+        domain: "ReactNativeFilesystem",
+        code: 404,
+        userInfo: [NSLocalizedDescriptionKey: "Saved photo asset could not be loaded from the library."]
+      )
+    }
+
+    return asset
+  }
+
+  private func serializeImageAsset(_ asset: PHAsset) -> [String: Any?] {
+    let resources = PHAssetResource.assetResources(for: asset)
+    let primaryResource = resources.first
+    let mimeType: String?
+    if let uniformTypeIdentifier = primaryResource?.uniformTypeIdentifier {
+      mimeType = UTType(uniformTypeIdentifier)?.preferredMIMEType
+    } else {
+      mimeType = nil
+    }
+    let previewUri = createPreviewImageURL(for: asset)?.absoluteString
+
+    return [
+      "id": asset.localIdentifier,
+      "uri": "ph://\(asset.localIdentifier)",
+      "previewUri": previewUri,
+      "filename": primaryResource?.originalFilename,
+      "width": asset.pixelWidth > 0 ? asset.pixelWidth : nil,
+      "height": asset.pixelHeight > 0 ? asset.pixelHeight : nil,
+      "mimeType": mimeType,
+      "size": nil,
+      "creationTime": asset.creationDate?.timeIntervalSince1970,
+      "modificationTime": asset.modificationDate?.timeIntervalSince1970
+    ]
+  }
+
+  private func createPreviewImageURL(for asset: PHAsset) -> URL? {
+    let previewsDirectory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("react-native-filesystem-media-previews", isDirectory: true)
+
+    do {
+      try FileManager.default.createDirectory(
+        at: previewsDirectory,
+        withIntermediateDirectories: true,
+        attributes: nil
+      )
+    } catch {
+      return nil
+    }
+
+    let sanitizedIdentifier = asset.localIdentifier.replacingOccurrences(of: "/", with: "_")
+    let fileURL = previewsDirectory.appendingPathComponent("\(sanitizedIdentifier).jpg")
+    if FileManager.default.fileExists(atPath: fileURL.path) {
+      return fileURL
+    }
+
+    let requestOptions = PHImageRequestOptions()
+    requestOptions.deliveryMode = .highQualityFormat
+    requestOptions.isNetworkAccessAllowed = true
+    requestOptions.isSynchronous = true
+    requestOptions.resizeMode = .exact
+
+    var renderedImage: UIImage?
+    PHImageManager.default().requestImage(
+      for: asset,
+      targetSize: CGSize(width: 600, height: 600),
+      contentMode: .aspectFill,
+      options: requestOptions
+    ) { image, _ in
+      renderedImage = image
+    }
+
+    guard let renderedImage, let jpegData = renderedImage.jpegData(compressionQuality: 0.85) else {
+      return nil
+    }
+
+    do {
+      try jpegData.write(to: fileURL, options: .atomic)
+      return fileURL
+    } catch {
+      return nil
+    }
   }
 
   private func createTemporaryExportFile(named filename: String, contents: String, mimeType: String?) throws -> URL {

@@ -3,7 +3,10 @@ import { registerWebModule, NativeModule } from 'expo';
 import {
   ReactNativeFilesystemDownloadOptions,
   ReactNativeFilesystemDownloadResult,
+  ReactNativeFilesystemGetImagesOptions,
+  ReactNativeFilesystemImageAsset,
   ReactNativeFilesystemModuleEvents,
+  ReactNativeFilesystemSaveImageOptions,
   ReactNativeFilesystemStat,
 } from './ReactNativeFilesystem.types';
 
@@ -24,6 +27,17 @@ class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesystemModu
     unsupported();
   }
   async writeFile(_path: string, _contents: string): Promise<void> {
+    unsupported();
+  }
+  async saveImageToLibrary(
+    _path: string,
+    _options?: ReactNativeFilesystemSaveImageOptions
+  ): Promise<ReactNativeFilesystemImageAsset> {
+    unsupported();
+  }
+  async getImages(
+    _options?: ReactNativeFilesystemGetImagesOptions
+  ): Promise<ReactNativeFilesystemImageAsset[]> {
     unsupported();
   }
   async downloadFile(

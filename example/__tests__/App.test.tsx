@@ -6,10 +6,42 @@ const { act } = TestRenderer;
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
 const mockNativeModule: any = {
+  addListener: (jest.fn() as any).mockReturnValue({
+    remove: jest.fn(),
+  }),
   getDocumentsDirectory: (jest.fn() as any).mockResolvedValue('/data/user/0/example/files'),
   exists: (jest.fn() as any).mockResolvedValue(true),
   readFile: (jest.fn() as any).mockResolvedValue('file contents from native'),
   writeFile: (jest.fn() as any).mockResolvedValue(undefined),
+  saveImageToLibrary: (jest.fn() as any).mockResolvedValue({
+    id: 'image-1',
+    uri: 'content://media/external/images/media/1',
+    filename: 'example-image.png',
+    width: 320,
+    height: 240,
+    mimeType: 'image/png',
+    size: 1024,
+    creationTime: 1700000000,
+    modificationTime: 1700000000,
+  }),
+  getImages: (jest.fn() as any).mockResolvedValue([
+    {
+      id: 'image-1',
+      uri: 'content://media/external/images/media/1',
+      filename: 'example-image.png',
+      width: 320,
+      height: 240,
+      mimeType: 'image/png',
+      size: 1024,
+      creationTime: 1700000000,
+      modificationTime: 1700000000,
+    },
+  ]),
+  downloadFile: (jest.fn() as any).mockResolvedValue({
+    path: '/tmp/example-image.png',
+    bytesWritten: 1024,
+    statusCode: 200,
+  }),
   writeFileToDownloads: (jest.fn() as any).mockResolvedValue(
     'content://downloads/public_downloads/1',
   ),
@@ -39,8 +71,21 @@ jest.mock('react-native', () => {
   return {
     Button: ({ title, onPress }: { title: string; onPress: () => void }) =>
       React.createElement('Button', { title, onPress }),
+    Image: createComponent('Image'),
     Platform: {
       OS: 'android',
+      Version: 34,
+    },
+    PermissionsAndroid: {
+      PERMISSIONS: {
+        READ_MEDIA_IMAGES: 'android.permission.READ_MEDIA_IMAGES',
+        READ_EXTERNAL_STORAGE: 'android.permission.READ_EXTERNAL_STORAGE',
+      },
+      RESULTS: {
+        GRANTED: 'granted',
+      },
+      check: jest.fn(async () => true),
+      request: jest.fn(async () => 'granted'),
     },
     processColor: (color: string) => color,
     SafeAreaView: createComponent('SafeAreaView'),
@@ -123,6 +168,9 @@ jest.mock('react-native-simple-fs', () => {
   return {
     __esModule: true,
     default: mockNativeModule,
+    ReactNativeFilesystemCommonMimeTypes: {
+      Png: 'image/png',
+    },
     ReactNativeFilesystemDirectoryKind: {
       Documents: DOCUMENTS_KIND,
       Custom: CUSTOM_KIND,
@@ -165,6 +213,35 @@ describe('example app mobile harness', () => {
     mockNativeModule.getDocumentsDirectory.mockResolvedValue('/data/user/0/example/files');
     mockNativeModule.exists.mockResolvedValue(true);
     mockNativeModule.writeFile.mockResolvedValue(undefined);
+    mockNativeModule.downloadFile.mockResolvedValue({
+      path: '/tmp/example-image.png',
+      bytesWritten: 1024,
+      statusCode: 200,
+    });
+    mockNativeModule.saveImageToLibrary.mockResolvedValue({
+      id: 'image-1',
+      uri: 'content://media/external/images/media/1',
+      filename: 'example-image.png',
+      width: 320,
+      height: 240,
+      mimeType: 'image/png',
+      size: 1024,
+      creationTime: 1700000000,
+      modificationTime: 1700000000,
+    });
+    mockNativeModule.getImages.mockResolvedValue([
+      {
+        id: 'image-1',
+        uri: 'content://media/external/images/media/1',
+        filename: 'example-image.png',
+        width: 320,
+        height: 240,
+        mimeType: 'image/png',
+        size: 1024,
+        creationTime: 1700000000,
+        modificationTime: 1700000000,
+      },
+    ]);
     mockNativeModule.writeFileToDownloads.mockResolvedValue(
       'content://downloads/public_downloads/1',
     );
@@ -223,9 +300,15 @@ describe('example app mobile harness', () => {
 
     await act(async () => {
       findByTestId('file-path-input').props.onChangeText('/tmp/custom.txt');
+      findByTestId('image-file-path-input').props.onChangeText('/tmp/custom-image.png');
+      findByTestId('image-download-url-input').props.onChangeText(
+        'https://www.example.com/custom-image.png',
+      );
+      findByTestId('image-list-limit-input').props.onChangeText('5');
       findByTestId('directory-path-input').props.onChangeText('/tmp/custom-dir');
       findByTestId('contents-input').props.onChangeText('updated file contents');
     });
+    expect(flattenText(findByTestId('image-location-result').props.children)).toContain('custom');
 
     await act(async () => {
       findButton('Exists')!.props.onPress();
@@ -285,8 +368,52 @@ describe('example app mobile harness', () => {
     expect(flattenText(findByTestId('downloads-result').props.children)).toContain(
       'content://downloads/public_downloads/1',
     );
-    expect(findByTestId('file-path-input').props.value).toBe(
-      'content://downloads/public_downloads/1',
+    expect(findByTestId('file-path-input').props.value).toBe('/tmp/custom.txt');
+
+    await act(async () => {
+      findButton('Download sample image')!.props.onPress();
+    });
+    expect(mockNativeModule.downloadFile).toHaveBeenCalledWith(
+      'https://www.example.com/custom-image.png',
+      '/tmp/custom-image.png',
+      { mimeType: 'image/png' },
     );
+    expect(findByTestId('image-file-path-input').props.value).toBe('/tmp/example-image.png');
+
+    await act(async () => {
+      findButton('Photos')!.props.onPress();
+    });
+    expect(flattenText(findByTestId('image-location-result').props.children)).toContain('photos');
+
+    await act(async () => {
+      findButton('Documents')!.props.onPress();
+    });
+    expect(flattenText(findByTestId('image-location-result').props.children)).toContain('documents');
+
+    await act(async () => {
+      findButton('Save image to library')!.props.onPress();
+    });
+    expect(mockNativeModule.saveImageToLibrary).toHaveBeenCalledWith(
+      '/data/user/0/example/files/example-image.png',
+      {
+        mimeType: 'image/png',
+      },
+    );
+    expect(flattenText(findByTestId('saved-image-result').props.children)).toContain(
+      'content://media/external/images/media/1',
+    );
+
+    await act(async () => {
+      findButton('List recent images')!.props.onPress();
+    });
+    expect(mockNativeModule.getImages).toHaveBeenCalledWith({ limit: 5 });
+    expect(flattenText(findByTestId('images-result').props.children)).toContain(
+      '1 image loaded',
+    );
+    expect(
+      root.findAllByType('Text').some((node: any) =>
+        flattenText(node.props.children).includes('example-image.png'),
+      ),
+    ).toBe(true);
   });
 });

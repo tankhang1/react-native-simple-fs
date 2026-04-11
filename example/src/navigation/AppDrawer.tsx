@@ -29,6 +29,7 @@ export function AppDrawer(props: DemoSharedProps) {
       <Drawer.Screen name="File Actions">{() => <DemoScreen mode="file" {...props} />}</Drawer.Screen>
       <Drawer.Screen name="Directory">{() => <DemoScreen mode="directory" {...props} />}</Drawer.Screen>
       <Drawer.Screen name="HTTPS Download">{() => <DemoScreen mode="remote" {...props} />}</Drawer.Screen>
+      <Drawer.Screen name="Media Library">{() => <DemoScreen mode="media" {...props} />}</Drawer.Screen>
       <Drawer.Screen name="Results">{() => <DemoScreen mode="results" {...props} />}</Drawer.Screen>
       <Drawer.Screen name="Preview">{() => <DemoScreen mode="preview" {...props} />}</Drawer.Screen>
     </Drawer.Navigator>

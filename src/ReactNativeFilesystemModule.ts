@@ -3,7 +3,10 @@ import { NativeModule, requireNativeModule } from 'expo';
 import {
   ReactNativeFilesystemDownloadOptions,
   ReactNativeFilesystemDownloadResult,
+  ReactNativeFilesystemGetImagesOptions,
+  ReactNativeFilesystemImageAsset,
   ReactNativeFilesystemModuleEvents,
+  ReactNativeFilesystemSaveImageOptions,
   ReactNativeFilesystemStat,
 } from './ReactNativeFilesystem.types';
 
@@ -12,6 +15,11 @@ declare class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesy
   exists(path: string): Promise<boolean>;
   readFile(path: string): Promise<string>;
   writeFile(path: string, contents: string): Promise<void>;
+  saveImageToLibrary(
+    path: string,
+    options?: ReactNativeFilesystemSaveImageOptions
+  ): Promise<ReactNativeFilesystemImageAsset>;
+  getImages(options?: ReactNativeFilesystemGetImagesOptions): Promise<ReactNativeFilesystemImageAsset[]>;
   downloadFile(
     url: string,
     destinationPath: string,

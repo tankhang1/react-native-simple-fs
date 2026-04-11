@@ -3,6 +3,7 @@ import {
   ReactNativeFilesystemDirectoryKind,
   type ReactNativeFilesystemDirectoryDescriptor,
 } from 'react-native-simple-fs';
+import { PermissionsAndroid, Platform } from 'react-native';
 import type { DemoMode } from './types';
 
 const EXTENSION_TO_MIME_TYPE: Record<string, string> = {
@@ -61,6 +62,35 @@ export function createCustomDirectory(path: string): ReactNativeFilesystemDirect
     kind: ReactNativeFilesystemDirectoryKind.Custom,
     path,
   };
+}
+
+export function normalizeDemoImagePath(
+  imageFilePath: string,
+  documentsDirectory: string,
+  fallbackFilename: string,
+) {
+  const trimmedPath = imageFilePath.trim();
+  if (trimmedPath.startsWith("/") || trimmedPath.startsWith("file://")) {
+    return trimmedPath;
+  }
+
+  const normalizedDocumentsDirectory = documentsDirectory.startsWith("Unavailable:")
+    ? "/tmp/react-native-filesystem"
+    : documentsDirectory;
+  const rawFilename = trimmedPath.split("/").pop()?.trim();
+  const filename =
+    rawFilename && rawFilename.includes(".") ? rawFilename : fallbackFilename;
+
+  return joinDemoPath(normalizedDocumentsDirectory, filename);
+}
+
+function joinDemoPath(...segments: string[]) {
+  return segments
+    .filter(Boolean)
+    .map((segment, index) =>
+      index === 0 ? segment.replace(/\/+$/, "") : segment.replace(/^\/+|\/+$/g, ""),
+    )
+    .join("/");
 }
 
 export function getStatusTone(status: string) {
@@ -136,6 +166,11 @@ export function getModeMeta(mode: DemoMode) {
         title: 'HTTPS Download',
         description: 'Paste a link and demo the download and export flow quickly.',
       };
+    case 'media':
+      return {
+        title: 'Media Library',
+        description: 'Download an image, save it to the system photo library, and list recent images.',
+      };
     case 'results':
       return {
         title: 'Results',
@@ -152,4 +187,23 @@ export function getModeMeta(mode: DemoMode) {
         description: 'A full tour of every filesystem feature in one polished screen.',
       };
   }
+}
+
+export async function ensureAndroidMediaPermission() {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+
+  const permission =
+    Platform.Version >= 33
+      ? PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES
+      : PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
+
+  const alreadyGranted = await PermissionsAndroid.check(permission);
+  if (alreadyGranted) {
+    return true;
+  }
+
+  const status = await PermissionsAndroid.request(permission);
+  return status === PermissionsAndroid.RESULTS.GRANTED;
 }

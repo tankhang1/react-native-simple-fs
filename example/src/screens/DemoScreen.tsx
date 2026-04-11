@@ -1,4 +1,5 @@
 import {
+  Image,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -7,7 +8,9 @@ import {
   View,
 } from "react-native";
 import ReactNativeFilesystem, {
+  ReactNativeFilesystemCommonMimeTypes,
   ReactNativeFilesystemView,
+  type ReactNativeFilesystemImageAsset,
 } from "react-native-simple-fs";
 import {
   ActionSection,
@@ -31,9 +34,13 @@ export function DemoScreen(props: DemoScreenProps) {
   const {
     mode,
     filePath,
+    imageFilePath,
+    imageLocation,
     directoryPath,
     contents,
     downloadUrl,
+    imageDownloadUrl,
+    imageListLimit,
     status,
     existsResult,
     readResult,
@@ -43,11 +50,19 @@ export function DemoScreen(props: DemoScreenProps) {
     downloadsResult,
     downloadResult,
     downloadProgress,
+    savedImageResult,
+    imagesResult,
+    savedImageAsset,
+    images,
     saveToFilesButtonTitle,
     setFilePath,
+    setImageFilePath,
+    setImageLocation,
     setDirectoryPath,
     setContents,
     setDownloadUrl,
+    setImageDownloadUrl,
+    setImageListLimit,
     setExistsResult,
     setReadResult,
     setDirectoryEntries,
@@ -55,6 +70,18 @@ export function DemoScreen(props: DemoScreenProps) {
     setDownloadsResult,
     setDownloadResult,
     setDownloadProgress,
+    setSavedImageResult,
+    setImagesResult,
+    setSavedImageAsset,
+    setImages,
+    applyPdfDemoDefaults,
+    applyImageDemoDefaults,
+    applyImageDocumentsLocation,
+    applyImagePhotosLocation,
+    applyImageCustomLocation,
+    downloadSampleImage,
+    saveCurrentImageToLibrary,
+    loadRecentImages,
     applyDocumentsDirectory,
     applyCustomDirectory,
     runAction,
@@ -69,10 +96,63 @@ export function DemoScreen(props: DemoScreenProps) {
   const showFileActions = isOverview || mode === "file";
   const showDirectoryActions = isOverview || mode === "directory";
   const showRemoteActions = isOverview || mode === "remote";
+  const showMediaActions = isOverview || mode === "media";
   const showResults = mode === "results";
   const showPreview = isOverview || mode === "preview";
   const downloadTargetPath =
     Platform.OS === "android" ? filePath.split("/").pop() || "downloaded-file" : filePath;
+
+  function formatAssetDate(timestamp: number | null) {
+    if (timestamp == null) {
+      return "Unknown date";
+    }
+
+    return new Date(timestamp * 1000).toLocaleString();
+  }
+
+  function formatAssetSubtitle(asset: ReactNativeFilesystemImageAsset) {
+    const parts = [
+      asset.width != null && asset.height != null
+        ? `${asset.width} x ${asset.height}`
+        : null,
+      asset.mimeType,
+      asset.size != null ? `${asset.size} bytes` : null,
+      formatAssetDate(asset.creationTime),
+    ].filter(Boolean);
+
+    return parts.join(" • ");
+  }
+
+  function renderMediaCard(
+    asset: ReactNativeFilesystemImageAsset,
+    index: number,
+    prefix: string,
+  ) {
+    const imageSourceUri = asset.previewUri || asset.uri;
+
+    return (
+      <View key={`${prefix}-${asset.id}-${index}`} style={styles.mediaCard}>
+        {imageSourceUri ? (
+          <Image
+            source={{ uri: imageSourceUri }}
+            style={styles.mediaImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.mediaFallback}>
+            <Text style={styles.mediaFallbackText}>No preview available</Text>
+          </View>
+        )}
+        <View style={styles.mediaMeta}>
+          <Text style={styles.mediaTitle}>
+            {asset.filename || `Image ${index + 1}`}
+          </Text>
+          <Text style={styles.mediaCaption}>{formatAssetSubtitle(asset)}</Text>
+          <Text style={styles.mediaCaption}>{asset.uri || "No URI available"}</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -103,8 +183,23 @@ export function DemoScreen(props: DemoScreenProps) {
           <Card>
             <Text style={styles.cardTitle}>HTTPS Demo Shortcut</Text>
             <Text style={styles.cardSubtitle}>
-              Paste a remote link here, then run the download action below.
+              Use the ready-made presets below or paste your own URL, then run one function at a time.
             </Text>
+
+            <View style={styles.buttonGrid}>
+              <ActionTile
+                title="Use PDF demo"
+                caption="Load the sample PDF URL and a matching local destination."
+                onPress={applyPdfDemoDefaults}
+              />
+              {showMediaActions && (
+                <ActionTile
+                  title="Use image demo"
+                  caption="Load the sample image URL and reset the media demo state."
+                  onPress={applyImageDemoDefaults}
+                />
+              )}
+            </View>
 
             <Field label="HTTPS URL">
               <TextInput
@@ -184,7 +279,7 @@ export function DemoScreen(props: DemoScreenProps) {
           <Card>
             <Text style={styles.cardTitle}>Editor</Text>
             <Text style={styles.cardSubtitle}>
-              Change the target path, the file body, or the remote download URL.
+              Each area below starts with a working default so you can test a single function quickly.
             </Text>
 
             <Field label="File path">
@@ -231,6 +326,82 @@ export function DemoScreen(props: DemoScreenProps) {
                 style={styles.input}
               />
             </Field>
+
+            {showMediaActions && (
+              <>
+                <Field label="Image file path">
+                  <TextInput
+                    testID="image-file-path-input"
+                    value={imageFilePath}
+                    onChangeText={(value) => {
+                      if (imageLocation !== "custom") {
+                        return;
+                      }
+                      setImageFilePath(value);
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={imageLocation === "custom"}
+                    style={styles.input}
+                  />
+                </Field>
+
+                <Field label="Image location">
+                  <View style={styles.inlineButtonRow}>
+                    <ActionTile
+                      title="Documents"
+                      caption={
+                        imageLocation === "documents"
+                          ? "Selected local documents path."
+                          : "Use the app Documents folder for the local image."
+                      }
+                      onPress={applyImageDocumentsLocation}
+                    />
+                    <ActionTile
+                      title="Photos"
+                      caption={
+                        imageLocation === "photos"
+                          ? "Selected system photo library."
+                          : "Browse images already saved in the system photo library."
+                      }
+                      onPress={applyImagePhotosLocation}
+                    />
+                    <ActionTile
+                      title="Custom"
+                      caption={
+                        imageLocation === "custom"
+                          ? "Selected custom local path."
+                          : "Use a custom folder path for the local image."
+                      }
+                      onPress={applyImageCustomLocation}
+                    />
+                  </View>
+                </Field>
+
+                <Field label="Image HTTPS URL">
+                  <TextInput
+                    testID="image-download-url-input"
+                    value={imageDownloadUrl}
+                    onChangeText={setImageDownloadUrl}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    style={styles.input}
+                  />
+                </Field>
+
+                <Field label="Image list limit">
+                  <TextInput
+                    testID="image-list-limit-input"
+                    value={imageListLimit}
+                    onChangeText={setImageListLimit}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="number-pad"
+                    style={styles.input}
+                  />
+                </Field>
+              </>
+            )}
 
             <View style={styles.snippetCard}>
               <Text style={styles.snippetLabel}>Live snippet</Text>
@@ -371,7 +542,7 @@ export function DemoScreen(props: DemoScreenProps) {
             {showRemoteActions && (
               <ActionSection
                 title="Remote and export flows"
-                description="Try the HTTPS download API and the platform-native save flow."
+                description="Step 1: use the PDF preset above. Step 2: run the download or export action below."
               >
                 <View style={styles.buttonGrid}>
                   <ActionTile
@@ -441,6 +612,69 @@ export function DemoScreen(props: DemoScreenProps) {
                 />
               </ActionSection>
             )}
+
+            {showMediaActions && (
+              <ActionSection
+                title="System image library"
+                description="Step 1: use the image preset. Step 2: download a local image. Step 3: save it to Photos or browse the current library."
+              >
+                <View style={styles.buttonGrid}>
+                  <ActionTile
+                    title="Use image demo"
+                    caption="Reset the media flow with the default image URL and a safe documents path."
+                    onPress={applyImageDemoDefaults}
+                  />
+                  <ActionTile
+                    title="Download sample image"
+                    caption="Fetch a PNG into app storage so it can be saved to the media library."
+                    onPress={() => runAction("downloadImage", downloadSampleImage)}
+                  />
+                  <ActionTile
+                    title="Save image to library"
+                    caption="Copy the current local image file into the system photo library."
+                    onPress={() => runAction("saveImageToLibrary", saveCurrentImageToLibrary)}
+                  />
+                  <ActionTile
+                    title="List recent images"
+                    caption="Read recent image entries from the system library."
+                    onPress={() => runAction("getImages", loadRecentImages)}
+                  />
+                </View>
+                <ResultPanel title="Status" value={status} accent="#205a43" />
+                <ResultPanel
+                  title="Saved image"
+                  value={savedImageResult}
+                  accent="#8b5d12"
+                  textTestID="saved-image-result"
+                />
+                <ResultPanel
+                  title="Image location"
+                  value={imageLocation}
+                  accent="#5b4b9a"
+                  textTestID="image-location-result"
+                />
+                <ResultPanel
+                  title="Images"
+                  value={imagesResult}
+                  accent="#255f85"
+                  textTestID="images-result"
+                />
+                <View style={styles.mediaSectionHeader}>
+                  <Text style={styles.cardTitle}>Recent Images</Text>
+                  <Text style={styles.mediaCountText}>
+                    {images.length === 0
+                      ? "Run “List recent images” to load the media gallery."
+                      : `${images.length} image${images.length === 1 ? "" : "s"} loaded`}
+                  </Text>
+                </View>
+                <View style={styles.mediaGrid}>
+                  {savedImageAsset ? renderMediaCard(savedImageAsset, 0, "saved") : null}
+                  {images.map((asset, index) =>
+                    renderMediaCard(asset, index, "list"),
+                  )}
+                </View>
+              </ActionSection>
+            )}
           </Card>
         )}
 
@@ -474,6 +708,18 @@ export function DemoScreen(props: DemoScreenProps) {
               value={downloadsResult}
               accent="#7a4a12"
               textTestID="downloads-result"
+            />
+            <ResultPanel
+              title="Saved image"
+              value={savedImageResult}
+              accent="#8b5d12"
+              textTestID="saved-image-result"
+            />
+            <ResultPanel
+              title="Images"
+              value={imagesResult}
+              accent="#255f85"
+              textTestID="images-result"
             />
             <ResultPanel
               title="Exists"

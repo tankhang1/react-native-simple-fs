@@ -2,152 +2,85 @@
 
 [![npm version](https://img.shields.io/npm/v/react-native-simple-fs.svg)](https://www.npmjs.com/package/react-native-simple-fs)
 
-Cross-platform Expo filesystem module for React Native.
-
-This package helps you:
-
-- read text files
-- write text files
-- download files from `http` or `https` URLs
-- create folders
-- check whether a file exists
-- list folder contents
-- move, copy, and delete files
-- save files to Android Downloads
-- export files with the iOS Files picker
+Cross-platform filesystem module for React Native apps built with Expo Modules.
 
 Package: https://www.npmjs.com/package/react-native-simple-fs
 
-## Demo
+## What This Package Does
 
-Watch the demo on YouTube:
+`react-native-simple-fs` helps you:
 
-https://youtube.com/shorts/1qx8jOYsjPg?si=Hxj6GSAsr2xWKAr2
+- read UTF-8 text files
+- write UTF-8 text files
+- create folders
+- check whether files exist
+- read directory entries
+- inspect file metadata
+- move, copy, and delete files
+- download remote files over `http` or `https`
+- write exported files to Android Downloads
+- open the iOS Files export flow
+- save a local image into the system photo library
+- list images from the system photo library
 
 ## Compatibility
 
-### Can I use it with these React Native setups?
+### React Native setup
 
-- React Native New Architecture: yes
-- React Native old architecture: yes
-- React Native CLI app: yes, but it requires installing `expo` and setting up Expo Modules
-- bare React Native app: yes, as long as `expo` and Expo Modules are installed in the native app
-- Expo managed app: yes, but you must create a custom native build
-- Expo prebuild / `expo run:android`: yes
-- Expo prebuild / `expo run:ios`: yes
-- EAS Build: yes
-- Expo Go: no, because Expo Go cannot load this custom native module
+| Setup | Supported | Notes |
+| --- | --- | --- |
+| React Native New Architecture | Yes | |
+| React Native old architecture | Yes | |
+| Bare React Native app | Yes | `expo` and Expo Modules must be installed |
+| React Native CLI app | Yes | `expo` setup is still required |
+| Expo managed app | Yes | Requires a custom native build |
+| `expo run:android` | Yes | |
+| `expo run:ios` | Yes | |
+| EAS Build | Yes | |
+| Expo Go | No | Expo Go cannot load this custom native module |
 
 ### Platform support
 
-- Android: supported
-- iOS: supported
-- Web: import is possible, but local filesystem methods are not supported and will throw
-
-### Notes
-
-- Android supports saving remote downloads directly into the public Downloads folder
-- iOS supports app storage downloads and the Files export flow, but not silent writing to a public Downloads folder
-- this package is built as an Expo Module, so non-Expo React Native apps must still include Expo Modules integration
-- if you use React Native CLI, install `expo` in your app before using this package
+| Platform | Supported | Notes |
+| --- | --- | --- |
+| Android | Yes | Supports app storage, Downloads, and MediaStore image library |
+| iOS | Yes | Supports app storage, Files export flow, and Photo Library APIs |
+| Web | Import only | Local filesystem methods throw on web |
 
 ## Install
-
-### Step 1: install the package
 
 ```bash
 npm install react-native-simple-fs
 ```
 
-### Step 2: rebuild your native app
-
-If your app already has native folders, rebuild after installing:
+Rebuild your native app after installing:
 
 ```bash
 npx expo run:android
-```
-
-```bash
 npx expo run:ios
 ```
 
-If you use EAS or your own CI builds, just make sure the next native build includes this package.
+### Peer dependencies
 
-Requirements:
+| Package | Required |
+| --- | --- |
+| `expo` | Yes |
+| `react` | Yes |
+| `react-native` | Yes |
 
-- `expo`
-- `react`
-- `react-native`
-
-This package declares them as peer dependencies, so your app must already include them.
-
-## How It Works
-
-There are 2 common places to save files:
-
-### 1. App Documents directory
-
-Use this when:
-
-- you want to store files inside your app
-- you want full read/write control
-- you want to download a file to a private app path
-
-### 2. Downloads / Files export flow
-
-Use this when:
-
-- you want the user to save a file outside the app
-- you want the file to be visible in Downloads on Android
-- you want the iOS Files picker to appear so the user chooses the location
-
-## Step-by-Step Quick Start
-
-### Step 1: import the package
+## Import
 
 ```ts
 import ReactNativeFilesystem, {
+  ReactNativeFilesystemCommonMimeTypes,
   ReactNativeFilesystemDirectoryKind,
+  joinReactNativeFilesystemPath,
+  resolveReactNativeFilesystemDirectory,
   resolveReactNativeFilesystemFilePath,
 } from 'react-native-simple-fs';
 ```
 
-### Step 2: create a file path inside Documents
-
-```ts
-const filePath = await resolveReactNativeFilesystemFilePath(
-  { kind: ReactNativeFilesystemDirectoryKind.Documents },
-  'hello.txt'
-);
-```
-
-What this does:
-
-- finds your app Documents directory
-- joins it with `hello.txt`
-- gives you a safe local path to use
-
-### Step 3: write text to the file
-
-```ts
-await ReactNativeFilesystem.writeFile(filePath, 'Hello from React Native');
-```
-
-### Step 4: check whether the file exists
-
-```ts
-const exists = await ReactNativeFilesystem.exists(filePath);
-console.log(exists);
-```
-
-### Step 5: read the file back
-
-```ts
-const contents = await ReactNativeFilesystem.readFile(filePath);
-console.log(contents);
-```
-
-### Full example
+## Quick Start
 
 ```ts
 import ReactNativeFilesystem, {
@@ -170,380 +103,119 @@ async function quickStart() {
 }
 ```
 
-## Step-by-Step: Download a File from HTTPS
+## Concepts
 
-Use this flow when you want to download a remote file and save it inside your app.
+### App Documents directory
 
-### Step 1: create the destination path
+Use the app Documents directory when:
 
-```ts
-const destinationPath = await resolveReactNativeFilesystemFilePath(
-  { kind: ReactNativeFilesystemDirectoryKind.Documents },
-  'remote-file.txt'
-);
-```
+- you want full read and write control
+- you want to keep files inside your app sandbox
+- you want to download a file to a private local path
 
-### Step 2: download the file
+### Downloads / Files export flow
 
-```ts
-const result = await ReactNativeFilesystem.downloadFile(
-  'https://www.w3.org/TR/PNG/iso_8859-1.txt',
-  destinationPath,
-  { onProgressIntervalMs: 150 }
-);
-```
+Use the export flow when:
 
-### Step 3: inspect the result
+- you want the user to receive a visible file outside the app
+- you want Android to write into public Downloads
+- you want iOS to show the Files picker
 
-```ts
-console.log(result);
-```
+### System photo library
 
-Example result:
+Use the media library APIs when:
 
-```ts
-{
-  path: '/.../remote-file.txt',
-  bytesWritten: 6121,
-  statusCode: 200
-}
-```
-
-### Step 4: read the file if it is text
-
-```ts
-const contents = await ReactNativeFilesystem.readFile(destinationPath);
-console.log(contents);
-```
-
-Important:
-
-- `readFile()` is for UTF-8 text
-- if you download an image, zip, pdf, or video, do not read it with `readFile()`
-
-### Full download example
-
-```ts
-import ReactNativeFilesystem, {
-  ReactNativeFilesystemDirectoryKind,
-  resolveReactNativeFilesystemFilePath,
-} from 'react-native-simple-fs';
-
-async function downloadExample() {
-  const destinationPath = await resolveReactNativeFilesystemFilePath(
-    { kind: ReactNativeFilesystemDirectoryKind.Documents },
-    'remote-file.txt'
-  );
-
-  const result = await ReactNativeFilesystem.downloadFile(
-    'https://www.w3.org/TR/PNG/iso_8859-1.txt',
-    destinationPath
-  );
-
-  const contents = await ReactNativeFilesystem.readFile(destinationPath);
-
-  console.log({ result, contents });
-}
-```
-
-## Step-by-Step: Save to Downloads or Files
-
-Use this when you want the user to receive a visible exported file.
-
-### Step 1: call `writeFileToDownloads`
-
-```ts
-const savedPath = await ReactNativeFilesystem.writeFileToDownloads(
-  'report.txt',
-  'Quarterly report contents',
-  'text/plain'
-);
-```
-
-### Step 2: use the returned path
-
-```ts
-console.log(savedPath);
-```
-
-Platform behavior:
-
-- Android: writes directly to Downloads
-- iOS: opens the Files picker and returns the chosen destination path
-
-For remote files on Android, `downloadFile()` can also write straight to Downloads by passing `saveToDownloads: true`.
-
-### Full export example
-
-```ts
-import ReactNativeFilesystem from 'react-native-simple-fs';
-
-async function exportExample() {
-  const savedPath = await ReactNativeFilesystem.writeFileToDownloads(
-    'report.txt',
-    'Quarterly report contents',
-    'text/plain'
-  );
-
-  console.log(savedPath);
-}
-```
-
-## Step-by-Step: Create and Read a Folder
-
-### Step 1: get the documents directory
-
-```ts
-const documentsDirectory = await ReactNativeFilesystem.getDocumentsDirectory();
-```
-
-### Step 2: define a folder path
-
-```ts
-const folderPath = `${documentsDirectory}/exports`;
-```
-
-### Step 3: create the folder
-
-```ts
-await ReactNativeFilesystem.mkdir(folderPath);
-```
-
-### Step 4: list folder contents
-
-```ts
-const entries = await ReactNativeFilesystem.readdir(folderPath);
-console.log(entries);
-```
-
-## Copy-Paste Recipes
-
-### Read JSON from a file
-
-```ts
-import ReactNativeFilesystem from 'react-native-simple-fs';
-
-async function readJsonFile(path: string) {
-  const raw = await ReactNativeFilesystem.readFile(path);
-  return JSON.parse(raw);
-}
-```
-
-### Write JSON to a file
-
-```ts
-import ReactNativeFilesystem from 'react-native-simple-fs';
-
-async function writeJsonFile(path: string, data: unknown) {
-  await ReactNativeFilesystem.writeFile(
-    path,
-    JSON.stringify(data, null, 2)
-  );
-}
-```
-
-### Create a folder only if it does not exist
-
-```ts
-import ReactNativeFilesystem from 'react-native-simple-fs';
-
-async function ensureFolder(path: string) {
-  if (!(await ReactNativeFilesystem.exists(path))) {
-    await ReactNativeFilesystem.mkdir(path);
-  }
-}
-```
-
-### Delete a file only if it exists
-
-```ts
-import ReactNativeFilesystem from 'react-native-simple-fs';
-
-async function safeDelete(path: string) {
-  if (await ReactNativeFilesystem.exists(path)) {
-    await ReactNativeFilesystem.deleteFile(path);
-  }
-}
-```
-
-### Move a file
-
-```ts
-import ReactNativeFilesystem from 'react-native-simple-fs';
-
-async function moveFile(from: string, to: string) {
-  await ReactNativeFilesystem.move(from, to);
-}
-```
-
-### Copy a file
-
-```ts
-import ReactNativeFilesystem from 'react-native-simple-fs';
-
-async function copyFile(from: string, to: string) {
-  await ReactNativeFilesystem.copy(from, to);
-}
-```
-
-## Imports
-
-Default import:
-
-```ts
-import ReactNativeFilesystem from 'react-native-simple-fs';
-```
-
-Helpers and types:
-
-```ts
-import {
-  ReactNativeFilesystemDirectoryKind,
-  joinReactNativeFilesystemPath,
-  resolveReactNativeFilesystemDirectory,
-  resolveReactNativeFilesystemFilePath,
-} from 'react-native-simple-fs';
-```
-
-## Platform Notes
-
-### Android
-
-- `getDocumentsDirectory()` returns your app-private files directory
-- `writeFileToDownloads()` writes directly to Downloads
-- the returned download location can be a normal path or a `content://` URI depending on Android version
-
-### iOS
-
-- `getDocumentsDirectory()` returns your app documents directory
-- writing to paths inside that directory works directly
-- `writeFileToDownloads()` opens the Files picker so the user selects a destination
-
-Important: iOS does not support silent saving to a public Downloads folder like Android does.
-
-### Web
-
-- local filesystem methods are not supported on web
-- calling them on web will throw an error
-
-## Types
-
-### `ReactNativeFilesystemStat`
-
-```ts
-type ReactNativeFilesystemStat = {
-  path: string;
-  exists: boolean;
-  isFile: boolean;
-  isDirectory: boolean;
-  size: number;
-  modificationTime: number | null;
-};
-```
-
-### `ReactNativeFilesystemDownloadResult`
-
-```ts
-type ReactNativeFilesystemDownloadResult = {
-  path: string;
-  bytesWritten: number;
-  statusCode: number;
-};
-```
-
-### `ReactNativeFilesystemDirectoryKind`
-
-```ts
-enum ReactNativeFilesystemDirectoryKind {
-  Documents = 'documents',
-  Custom = 'custom',
-}
-```
-
-### `ReactNativeFilesystemDirectoryDescriptor`
-
-```ts
-type ReactNativeFilesystemDirectoryDescriptor =
-  | { kind: ReactNativeFilesystemDirectoryKind.Documents }
-  | { kind: ReactNativeFilesystemDirectoryKind.Custom; path: string };
-```
+- you want to save a local image into Photos / Gallery
+- you want to list images from the system media library
 
 ## Path Helpers
 
 ### `joinReactNativeFilesystemPath(...segments)`
 
-Joins path segments and removes duplicate slashes.
+Joins path segments with normalized slashes.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `...segments` | `string[]` | Path parts to join |
 
 ```ts
-import { joinReactNativeFilesystemPath } from 'react-native-simple-fs';
-
-const fullPath = joinReactNativeFilesystemPath(
-  '/data/user/0/app/files/',
-  '/images/',
-  'avatar.txt'
-);
-
-console.log(fullPath);
-// /data/user/0/app/files/images/avatar.txt
+const path = joinReactNativeFilesystemPath('/tmp/demo', 'nested', 'file.txt');
 ```
 
 ### `resolveReactNativeFilesystemDirectory(directory)`
 
-Resolves a typed directory descriptor to a real path.
+Resolves a directory descriptor into an absolute path.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `directory` | `ReactNativeFilesystemDirectoryDescriptor` | Directory descriptor |
 
 ```ts
-import {
-  ReactNativeFilesystemDirectoryKind,
-  resolveReactNativeFilesystemDirectory,
-} from 'react-native-simple-fs';
-
-async function resolveDirectory() {
-  const documentsPath = await resolveReactNativeFilesystemDirectory({
-    kind: ReactNativeFilesystemDirectoryKind.Documents,
-  });
-
-  const customPath = await resolveReactNativeFilesystemDirectory({
-    kind: ReactNativeFilesystemDirectoryKind.Custom,
-    path: '/tmp/my-folder',
-  });
-
-  console.log({ documentsPath, customPath });
-}
+const documentsPath = await resolveReactNativeFilesystemDirectory({
+  kind: ReactNativeFilesystemDirectoryKind.Documents,
+});
 ```
 
 ### `resolveReactNativeFilesystemFilePath(directory, filename)`
 
-Builds a file path from a directory descriptor plus a filename.
+Resolves a safe absolute file path inside a directory descriptor.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `directory` | `ReactNativeFilesystemDirectoryDescriptor` | Base directory |
+| `filename` | `string` | File name to append |
 
 ```ts
-import {
-  ReactNativeFilesystemDirectoryKind,
-  resolveReactNativeFilesystemFilePath,
-} from 'react-native-simple-fs';
-
-async function resolveFilePath() {
-  const filePath = await resolveReactNativeFilesystemFilePath(
-    { kind: ReactNativeFilesystemDirectoryKind.Documents },
-    'notes.txt'
-  );
-
-  console.log(filePath);
-}
+const pdfPath = await resolveReactNativeFilesystemFilePath(
+  { kind: ReactNativeFilesystemDirectoryKind.Documents },
+  'sample.pdf'
+);
 ```
+
+## API Summary
+
+| Function | Purpose | Android | iOS |
+| --- | --- | --- | --- |
+| `getDocumentsDirectory()` | Resolve app Documents directory | Yes | Yes |
+| `exists(path)` | Check whether a path exists | Yes | Yes |
+| `readFile(path)` | Read a UTF-8 text file | Yes | Yes |
+| `writeFile(path, contents)` | Write a UTF-8 text file | Yes | Yes |
+| `downloadFile(url, destinationPath, options?)` | Download a remote file | Yes | Yes |
+| `writeFileToDownloads(filename, contents, mimeType?)` | Export a file outside the app | Downloads | Files picker |
+| `saveImageToLibrary(path, options?)` | Save a local image into the system photo library | Yes | Yes |
+| `getImages(options?)` | List images from the system media library | Yes | Yes |
+| `deleteFile(path)` | Delete a file or folder | Yes | Yes |
+| `mkdir(path)` | Create a directory | Yes | Yes |
+| `readdir(path)` | List directory entries | Yes | Yes |
+| `stat(path)` | Read path metadata | Yes | Yes |
+| `move(from, to)` | Move a file or directory | Yes | Yes |
+| `copy(from, to)` | Copy a file or directory | Yes | Yes |
 
 ## API Reference
 
 ### `getDocumentsDirectory()`
 
-Returns the app documents directory path.
+Returns the app Documents directory as an absolute path.
+
+| Returns | Type |
+| --- | --- |
+| documents path | `Promise<string>` |
 
 ```ts
-const documentsDirectory = await ReactNativeFilesystem.getDocumentsDirectory();
+const documentsPath = await ReactNativeFilesystem.getDocumentsDirectory();
 ```
 
 ### `exists(path)`
 
-Checks whether a file or directory exists.
+Checks whether a path exists.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | `string` | Yes | Absolute file path or supported URI |
+
+| Returns | Type |
+| --- | --- |
+| exists | `Promise<boolean>` |
 
 ```ts
 const exists = await ReactNativeFilesystem.exists(filePath);
@@ -553,115 +225,194 @@ const exists = await ReactNativeFilesystem.exists(filePath);
 
 Reads a UTF-8 text file.
 
-Do not use this for binary files such as PDFs, images, videos, or zip files.
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | `string` | Yes | Absolute file path or supported URI |
+
+| Returns | Type |
+| --- | --- |
+| file contents | `Promise<string>` |
 
 ```ts
-const contents = await ReactNativeFilesystem.readFile(filePath);
+const text = await ReactNativeFilesystem.readFile(filePath);
 ```
+
+Notes:
+
+- use this only for UTF-8 text files
+- do not use this for binary files like images, PDFs, ZIPs, or videos
 
 ### `writeFile(path, contents)`
 
-Writes UTF-8 text to a file.
+Writes UTF-8 text to a file. Parent folders are created when needed.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | `string` | Yes | Absolute destination path |
+| `contents` | `string` | Yes | UTF-8 text to write |
+
+| Returns | Type |
+| --- | --- |
+| nothing | `Promise<void>` |
 
 ```ts
-await ReactNativeFilesystem.writeFile(filePath, 'Hello from file');
+await ReactNativeFilesystem.writeFile(filePath, 'Hello world');
 ```
 
 ### `downloadFile(url, destinationPath, options?)`
 
-Downloads a remote file into a local destination path.
+Downloads a remote file to a local path or platform-specific destination.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `url` | `string` | Yes | Remote `http` or `https` URL |
+| `destinationPath` | `string` | Yes | Local path or supported destination |
+| `options` | `ReactNativeFilesystemDownloadOptions` | No | Download options |
+
+#### `ReactNativeFilesystemDownloadOptions`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `mimeType` | `string` | No | Explicit MIME type |
+| `onProgressIntervalMs` | `number` | No | Progress event interval in milliseconds |
+| `progressId` | `string` | No | Progress event correlation id |
+| `saveToDownloads` | `boolean` | No | Android only, write directly to Downloads |
+
+#### Return value
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `path` | `string` | Final saved path or URI |
+| `bytesWritten` | `number` | Number of bytes written |
+| `statusCode` | `number` | HTTP status code |
 
 ```ts
-import ReactNativeFilesystem, {
-  ReactNativeFilesystemCommonMimeTypes,
-} from 'react-native-simple-fs';
+const destinationPath = await resolveReactNativeFilesystemFilePath(
+  { kind: ReactNativeFilesystemDirectoryKind.Documents },
+  'sample.pdf'
+);
 
 const result = await ReactNativeFilesystem.downloadFile(
   'https://pdfobject.com/pdf/sample.pdf',
-  filePath,
+  destinationPath,
   {
     mimeType: ReactNativeFilesystemCommonMimeTypes.Pdf,
     onProgressIntervalMs: 150,
-  }
-);
-```
-
-Behavior:
-
-- supports `http` and `https`
-- creates parent directories automatically
-- overwrites the destination file if it already exists
-- if `destinationPath` has no extension, the module tries to infer one from `options.mimeType`, the server's suggested filename, or the response MIME type
-- works for text and binary downloads
-- for binary files, use the returned `result.path` and do not pass the file into `readFile()`
-- on Android, pass `{ saveToDownloads: true }` to save the remote file in the public Downloads folder
-- emits `downloadProgress` events when `onProgressIntervalMs` is provided
-- returns `{ path, bytesWritten, statusCode }`
-
-Download options:
-
-- `mimeType?: string`
-- `onProgressIntervalMs?: number`
-- `progressId?: string`
-- `saveToDownloads?: boolean` Android only
-
-Progress events:
-
-```ts
-const subscription = ReactNativeFilesystem.addListener(
-  'downloadProgress',
-  (event) => {
-    console.log(event.progress, event.bytesWritten, event.destinationPath);
+    progressId: 'sample-pdf',
   }
 );
 
-const result = await ReactNativeFilesystem.downloadFile(url, filePath, {
-  onProgressIntervalMs: 150,
-  progressId: 'my-download',
-});
-
-subscription.remove();
+console.log(result);
 ```
 
 ### `writeFileToDownloads(filename, contents, mimeType?)`
 
-Saves a file using the platform export flow.
+Exports a file outside the app.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `filename` | `string` | Yes | Output file name |
+| `contents` | `string` | Yes | UTF-8 text contents |
+| `mimeType` | `string` | No | MIME type |
+
+| Returns | Type | Description |
+| --- | --- | --- |
+| saved path | `Promise<string>` | Android URI/path or iOS export result |
 
 ```ts
 const savedPath = await ReactNativeFilesystem.writeFileToDownloads(
-  'export.json',
+  'report.json',
   JSON.stringify({ ok: true }, null, 2),
-  'application/json'
+  ReactNativeFilesystemCommonMimeTypes.Json
 );
 ```
 
-Common MIME constants are also exported:
+Platform notes:
+
+- Android writes directly to public Downloads
+- iOS opens the Files picker so the user chooses the destination
+
+### `saveImageToLibrary(path, options?)`
+
+Saves a local image file into the system photo library.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | `string` | Yes | Local image file path. Android also supports `content://` |
+| `options` | `ReactNativeFilesystemSaveImageOptions` | No | Save options |
+
+#### `ReactNativeFilesystemSaveImageOptions`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `filename` | `string` | No | Override output file name when supported |
+| `mimeType` | `string` | No | Explicit MIME type |
+
+#### Return value: `ReactNativeFilesystemImageAsset`
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Native asset id |
+| `uri` | `string` | Primary asset URI |
+| `previewUri` | `string \| null` | Optional preview-friendly URI |
+| `filename` | `string \| null` | File name |
+| `width` | `number \| null` | Image width |
+| `height` | `number \| null` | Image height |
+| `mimeType` | `string \| null` | MIME type |
+| `size` | `number \| null` | File size in bytes |
+| `creationTime` | `number \| null` | Unix timestamp in seconds |
+| `modificationTime` | `number \| null` | Unix timestamp in seconds |
 
 ```ts
-import {
-  ReactNativeFilesystemCommonMimeTypes,
-} from 'react-native-simple-fs';
-
-await ReactNativeFilesystem.writeFileToDownloads(
-  'report',
-  contents,
-  ReactNativeFilesystemCommonMimeTypes.Pdf
+const localImagePath = await resolveReactNativeFilesystemFilePath(
+  { kind: ReactNativeFilesystemDirectoryKind.Documents },
+  'example-image.png'
 );
+
+await ReactNativeFilesystem.downloadFile(
+  'https://i.pinimg.com/736x/b3/bc/45/b3bc459af204f37a4bdd78f991d5e6cf.jpg',
+  localImagePath,
+  { mimeType: ReactNativeFilesystemCommonMimeTypes.Jpeg }
+);
+
+const asset = await ReactNativeFilesystem.saveImageToLibrary(localImagePath, {
+  mimeType: ReactNativeFilesystemCommonMimeTypes.Jpeg,
+});
 ```
 
-You can also use the same constants with `downloadFile()`:
+### `getImages(options?)`
+
+Lists images from the system media library.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `options` | `ReactNativeFilesystemGetImagesOptions` | No | Query options |
+
+#### `ReactNativeFilesystemGetImagesOptions`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `limit` | `number` | No | Maximum number of images to return |
+
+| Returns | Type |
+| --- | --- |
+| images | `Promise<ReactNativeFilesystemImageAsset[]>` |
 
 ```ts
-const result = await ReactNativeFilesystem.downloadFile(
-  url,
-  destinationPath,
-  { mimeType: ReactNativeFilesystemCommonMimeTypes.Pdf }
-);
+const images = await ReactNativeFilesystem.getImages({ limit: 20 });
 ```
 
 ### `deleteFile(path)`
 
 Deletes a file or directory path.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | `string` | Yes | Path to delete |
+
+| Returns | Type |
+| --- | --- |
+| nothing | `Promise<void>` |
 
 ```ts
 await ReactNativeFilesystem.deleteFile(filePath);
@@ -669,7 +420,15 @@ await ReactNativeFilesystem.deleteFile(filePath);
 
 ### `mkdir(path)`
 
-Creates a directory.
+Creates a directory and missing parent folders.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | `string` | Yes | Directory path |
+
+| Returns | Type |
+| --- | --- |
+| nothing | `Promise<void>` |
 
 ```ts
 await ReactNativeFilesystem.mkdir(folderPath);
@@ -677,7 +436,15 @@ await ReactNativeFilesystem.mkdir(folderPath);
 
 ### `readdir(path)`
 
-Lists entries inside a directory.
+Lists directory entries.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | `string` | Yes | Directory path |
+
+| Returns | Type |
+| --- | --- |
+| entries | `Promise<string[]>` |
 
 ```ts
 const entries = await ReactNativeFilesystem.readdir(folderPath);
@@ -687,6 +454,21 @@ const entries = await ReactNativeFilesystem.readdir(folderPath);
 
 Returns metadata for a file or directory.
 
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | `string` | Yes | Path to inspect |
+
+#### Return value: `ReactNativeFilesystemStat`
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `path` | `string` | Original path |
+| `exists` | `boolean` | Whether the path exists |
+| `isFile` | `boolean` | Whether the path is a file |
+| `isDirectory` | `boolean` | Whether the path is a directory |
+| `size` | `number` | Size in bytes |
+| `modificationTime` | `number \| null` | Unix timestamp in seconds |
+
 ```ts
 const stat = await ReactNativeFilesystem.stat(filePath);
 ```
@@ -694,6 +476,15 @@ const stat = await ReactNativeFilesystem.stat(filePath);
 ### `move(from, to)`
 
 Moves a file or directory.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `from` | `string` | Yes | Source path |
+| `to` | `string` | Yes | Destination path |
+
+| Returns | Type |
+| --- | --- |
+| nothing | `Promise<void>` |
 
 ```ts
 await ReactNativeFilesystem.move(oldPath, newPath);
@@ -703,129 +494,214 @@ await ReactNativeFilesystem.move(oldPath, newPath);
 
 Copies a file or directory.
 
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `from` | `string` | Yes | Source path |
+| `to` | `string` | Yes | Destination path |
+
+| Returns | Type |
+| --- | --- |
+| nothing | `Promise<void>` |
+
 ```ts
 await ReactNativeFilesystem.copy(sourcePath, destinationPath);
 ```
 
-## Error Handling Example
+## Events
+
+### `downloadProgress`
+
+The native module emits `downloadProgress` during `downloadFile(...)`.
+
+#### Event shape: `ReactNativeFilesystemDownloadProgressEvent`
+
+| Property | Type | Description |
+| --- | --- | --- |
+| `bytesWritten` | `number` | Bytes written so far |
+| `contentLength` | `number \| null` | Total content length if known |
+| `destinationPath` | `string` | Destination path or URI |
+| `progress` | `number \| null` | `0..1` if known |
+| `progressId` | `string \| null` | Caller-provided progress id |
+| `url` | `string` | Download URL |
 
 ```ts
-import ReactNativeFilesystem, {
-  ReactNativeFilesystemDirectoryKind,
-  resolveReactNativeFilesystemFilePath,
-} from 'react-native-simple-fs';
+const subscription = (ReactNativeFilesystem as any).addListener(
+  'downloadProgress',
+  (event) => {
+    console.log(event.progress, event.destinationPath);
+  }
+);
 
-async function safeReadExample() {
+const destinationPath = await resolveReactNativeFilesystemFilePath(
+  { kind: ReactNativeFilesystemDirectoryKind.Documents },
+  'sample.pdf'
+);
+
+await ReactNativeFilesystem.downloadFile(
+  'https://pdfobject.com/pdf/sample.pdf',
+  destinationPath,
+  {
+    progressId: 'sample-pdf',
+    onProgressIntervalMs: 100,
+  }
+);
+
+subscription.remove();
+```
+
+## MIME Type Helpers
+
+The package exports common MIME type constants:
+
+```ts
+ReactNativeFilesystemCommonMimeTypes.Csv
+ReactNativeFilesystemCommonMimeTypes.Gif
+ReactNativeFilesystemCommonMimeTypes.Html
+ReactNativeFilesystemCommonMimeTypes.Jpeg
+ReactNativeFilesystemCommonMimeTypes.Json
+ReactNativeFilesystemCommonMimeTypes.Pdf
+ReactNativeFilesystemCommonMimeTypes.Png
+ReactNativeFilesystemCommonMimeTypes.Text
+ReactNativeFilesystemCommonMimeTypes.Webp
+ReactNativeFilesystemCommonMimeTypes.Xml
+ReactNativeFilesystemCommonMimeTypes.Zip
+```
+
+Example:
+
+```ts
+await ReactNativeFilesystem.downloadFile(url, destinationPath, {
+  mimeType: ReactNativeFilesystemCommonMimeTypes.Pdf,
+});
+```
+
+## End-to-End Examples
+
+### Example: download a PDF to app storage
+
+```ts
+async function downloadPdfExample() {
+  const destinationPath = await resolveReactNativeFilesystemFilePath(
+    { kind: ReactNativeFilesystemDirectoryKind.Documents },
+    'sample.pdf'
+  );
+
+  const result = await ReactNativeFilesystem.downloadFile(
+    'https://pdfobject.com/pdf/sample.pdf',
+    destinationPath,
+    { mimeType: ReactNativeFilesystemCommonMimeTypes.Pdf }
+  );
+
+  return result;
+}
+```
+
+### Example: write and export JSON
+
+```ts
+async function exportJsonExample() {
+  const path = await resolveReactNativeFilesystemFilePath(
+    { kind: ReactNativeFilesystemDirectoryKind.Documents },
+    'report.json'
+  );
+
+  await ReactNativeFilesystem.writeFile(
+    path,
+    JSON.stringify({ ok: true }, null, 2)
+  );
+
+  return ReactNativeFilesystem.writeFileToDownloads(
+    'report.json',
+    await ReactNativeFilesystem.readFile(path),
+    ReactNativeFilesystemCommonMimeTypes.Json
+  );
+}
+```
+
+### Example: save an image to the system photo library
+
+```ts
+async function saveImageExample() {
+  const localImagePath = await resolveReactNativeFilesystemFilePath(
+    { kind: ReactNativeFilesystemDirectoryKind.Documents },
+    'example-image.jpg'
+  );
+
+  await ReactNativeFilesystem.downloadFile(
+    'https://i.pinimg.com/736x/b3/bc/45/b3bc459af204f37a4bdd78f991d5e6cf.jpg',
+    localImagePath,
+    { mimeType: ReactNativeFilesystemCommonMimeTypes.Jpeg }
+  );
+
+  const savedAsset = await ReactNativeFilesystem.saveImageToLibrary(localImagePath, {
+    mimeType: ReactNativeFilesystemCommonMimeTypes.Jpeg,
+  });
+
+  const recentImages = await ReactNativeFilesystem.getImages({ limit: 12 });
+
+  return { savedAsset, recentImages };
+}
+```
+
+## Permissions
+
+### Android
+
+`getImages()` requires media read permission.
+
+| Android version | Permission |
+| --- | --- |
+| Android 13+ | `READ_MEDIA_IMAGES` |
+| Android 12 and below | `READ_EXTERNAL_STORAGE` |
+
+Older Android public storage writes may also require legacy storage permissions.
+
+### iOS
+
+Your app must include these `Info.plist` keys:
+
+| Key | Needed for |
+| --- | --- |
+| `NSPhotoLibraryUsageDescription` | `getImages()` |
+| `NSPhotoLibraryAddUsageDescription` | `saveImageToLibrary()` |
+
+## Web behavior
+
+On web, the package can be imported, but local filesystem methods are not supported and will throw.
+
+## Error handling
+
+```ts
+async function safeRead(path: string) {
   try {
-    const path = await resolveReactNativeFilesystemFilePath(
-      { kind: ReactNativeFilesystemDirectoryKind.Documents },
-      'hello.txt'
-    );
-
-    const contents = await ReactNativeFilesystem.readFile(path);
-    console.log(contents);
+    return await ReactNativeFilesystem.readFile(path);
   } catch (error) {
-    console.error('Filesystem error:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Filesystem error:', message);
+    return null;
   }
 }
 ```
 
-## Practical Tips
+## AI-friendly Summary
 
-- use `resolveReactNativeFilesystemFilePath()` when you want a safe file path inside app storage
-- use `writeFileToDownloads()` when the user should receive a visible exported file
-- use `downloadFile()` when you want to save a remote file into your app storage
-- only use `readFile()` for UTF-8 text files
-- on web, local filesystem methods are intentionally unsupported
+Use this package when you need native filesystem helpers in a React Native app with Expo Modules.
 
-## Contact / Support
+Key behaviors:
 
-If you need help, want to report a bug, or want to request a feature, use one of these:
+- `readFile()` and `writeFile()` are text-oriented APIs
+- `downloadFile()` saves a remote `http` or `https` file to a destination path
+- `writeFileToDownloads()` exports a visible file outside the app
+- `saveImageToLibrary()` takes a local image path and saves it into Photos / Gallery
+- `getImages()` reads from the system media library
+- `resolveReactNativeFilesystemFilePath(...)` is the safest way to build a valid app-local destination path
+- web imports are allowed, but native filesystem methods throw
 
-- GitHub Issues: https://github.com/tankhang1/react-native-simple-fs/issues
-- Repository: https://github.com/tankhang1/react-native-simple-fs
-- Author: Ethan <doank3442@gmail.com>
+Recommended default pattern:
 
-When opening an issue, it helps to include:
-
-- platform: Android, iOS, or Web
-- Expo SDK version
-- React Native version
-- a small code sample
-- the exact error message
-
-## FAQ
-
-### Does this package work on Android and iOS?
-
-Yes. This package is built for Android and iOS through Expo Modules.
-
-### Does this package work on web?
-
-The package can be imported on web, but local filesystem methods are not supported there and will throw.
-
-### Can I download files from HTTPS?
-
-Yes. Use `downloadFile(url, destinationPath)` to download a remote file into your app storage.
-
-### Can I save directly to the public Downloads folder on iOS?
-
-No. iOS does not allow silent writing to a public Downloads folder the same way Android does. On iOS, `writeFileToDownloads()` opens the Files picker so the user chooses the destination.
-
-### Can I read images or PDFs with `readFile()`?
-
-No. `readFile()` is designed for UTF-8 text files. For binary files like images, PDFs, videos, or zip files, do not read them as text.
-
-### What path should I use for app-managed files?
-
-Use `resolveReactNativeFilesystemFilePath()` together with `ReactNativeFilesystemDirectoryKind.Documents`. That is the safest default for storing files inside your app.
-
-## Contributing
-
-Contributions are welcome.
-
-If you want to contribute:
-
-1. Fork the repository.
-2. Create a feature branch.
-3. Make your changes.
-4. Add or update tests when needed.
-5. Open a pull request with a clear description.
-
-Recommended when submitting a pull request:
-
-- explain the problem being solved
-- describe the expected behavior
-- include screenshots or screen recordings if UI behavior changes
-- mention platform-specific impact if relevant
-
-Before opening a pull request, run the project checks if available:
-
-```bash
-npm test
+```ts
+const path = await resolveReactNativeFilesystemFilePath(
+  { kind: ReactNativeFilesystemDirectoryKind.Documents },
+  'file.txt'
+);
 ```
-
-```bash
-npm run build
-```
-
-Repository: https://github.com/tankhang1/react-native-simple-fs
-
-## Security
-
-If you believe you found a security issue, please do not post sensitive details in a public issue first.
-
-Instead:
-
-- contact the maintainer directly at `doank3442@gmail.com`
-- include steps to reproduce the issue
-- explain the impact clearly
-- share any temporary mitigation if you know one
-
-Please use GitHub Issues for normal bugs and feature requests, and private contact for responsible disclosure of security-related issues.
-
-## License
-
-MIT
-
-See the package metadata in [package.json](/Users/khang/Documents/Nexa/react-native-filesystem/package.json).

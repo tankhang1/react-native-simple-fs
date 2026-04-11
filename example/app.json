@@ -14,7 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "expo.modules.filesystem.example"
+      "bundleIdentifier": "expo.modules.filesystem.example",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "This demo reads recent images from your photo library.",
+        "NSPhotoLibraryAddUsageDescription": "This demo saves downloaded images into your photo library."
+      }
     },
     "android": {
       "adaptiveIcon": {

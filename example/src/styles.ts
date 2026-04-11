@@ -127,6 +127,9 @@ export const styles = StyleSheet.create({
   field: {
     gap: 8,
   },
+  inlineButtonRow: {
+    gap: 10,
+  },
   fieldLabel: {
     color: '#2f3c38',
     fontSize: 14,
@@ -211,6 +214,55 @@ export const styles = StyleSheet.create({
     color: '#1d2a28',
     fontSize: 14,
     lineHeight: 20,
+  },
+  mediaSectionHeader: {
+    gap: 4,
+  },
+  mediaCountText: {
+    color: '#6b746d',
+    fontSize: 13,
+  },
+  mediaGrid: {
+    gap: 12,
+  },
+  mediaCard: {
+    backgroundColor: '#fff',
+    borderColor: '#e4d8c3',
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  mediaImage: {
+    width: '100%',
+    height: 180,
+    backgroundColor: '#e8e0d2',
+  },
+  mediaFallback: {
+    alignItems: 'center',
+    backgroundColor: '#e8e0d2',
+    height: 180,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  mediaFallbackText: {
+    color: '#6f6556',
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  mediaMeta: {
+    gap: 6,
+    padding: 14,
+  },
+  mediaTitle: {
+    color: '#1d2a28',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  mediaCaption: {
+    color: '#657168',
+    fontSize: 13,
+    lineHeight: 18,
   },
   previewShell: {
     overflow: 'hidden',
