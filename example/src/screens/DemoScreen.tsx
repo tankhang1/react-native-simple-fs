@@ -1,4 +1,5 @@
 import {
+  Button,
   Image,
   Platform,
   SafeAreaView,
@@ -82,6 +83,7 @@ export function DemoScreen(props: DemoScreenProps) {
     downloadSampleImage,
     saveCurrentImageToLibrary,
     loadRecentImages,
+    deleteImageFromLibrary,
     applyDocumentsDirectory,
     applyCustomDirectory,
     runAction,
@@ -127,6 +129,7 @@ export function DemoScreen(props: DemoScreenProps) {
     asset: ReactNativeFilesystemImageAsset,
     index: number,
     prefix: string,
+    allowDelete = false,
   ) {
     const imageSourceUri = asset.previewUri || asset.uri;
 
@@ -149,6 +152,18 @@ export function DemoScreen(props: DemoScreenProps) {
           </Text>
           <Text style={styles.mediaCaption}>{formatAssetSubtitle(asset)}</Text>
           <Text style={styles.mediaCaption}>{asset.uri || "No URI available"}</Text>
+          {allowDelete ? (
+            <View style={styles.mediaActionRow}>
+              <Button
+                title="Delete from library"
+                onPress={() =>
+                  runAction("deleteImageFromLibrary", async () => {
+                    await deleteImageFromLibrary(asset);
+                  })
+                }
+              />
+            </View>
+          ) : null}
         </View>
       </View>
     );
@@ -616,7 +631,7 @@ export function DemoScreen(props: DemoScreenProps) {
             {showMediaActions && (
               <ActionSection
                 title="System image library"
-                description="Step 1: use the image preset. Step 2: download a local image. Step 3: save it to Photos or browse the current library."
+                description="Step 1: use the image preset. Step 2: download a local image. Step 3: save it to Photos. Step 4: list or delete images from the current library."
               >
                 <View style={styles.buttonGrid}>
                   <ActionTile
@@ -639,6 +654,17 @@ export function DemoScreen(props: DemoScreenProps) {
                     caption="Read recent image entries from the system library."
                     onPress={() => runAction("getImages", loadRecentImages)}
                   />
+                  {savedImageAsset ? (
+                    <ActionTile
+                      title="Delete saved image"
+                      caption="Remove the most recently saved demo image from the system photo library."
+                      onPress={() =>
+                        runAction("deleteImageFromLibrary", async () => {
+                          await deleteImageFromLibrary(savedImageAsset);
+                        })
+                      }
+                    />
+                  ) : null}
                 </View>
                 <ResultPanel title="Status" value={status} accent="#205a43" />
                 <ResultPanel
@@ -668,9 +694,9 @@ export function DemoScreen(props: DemoScreenProps) {
                   </Text>
                 </View>
                 <View style={styles.mediaGrid}>
-                  {savedImageAsset ? renderMediaCard(savedImageAsset, 0, "saved") : null}
+                  {savedImageAsset ? renderMediaCard(savedImageAsset, 0, "saved", true) : null}
                   {images.map((asset, index) =>
-                    renderMediaCard(asset, index, "list"),
+                    renderMediaCard(asset, index, "list", true),
                   )}
                 </View>
               </ActionSection>

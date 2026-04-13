@@ -61,6 +61,7 @@ export type DemoSharedProps = {
   downloadSampleImage: () => Promise<void>;
   saveCurrentImageToLibrary: () => Promise<void>;
   loadRecentImages: () => Promise<void>;
+  deleteImageFromLibrary: (asset: ReactNativeFilesystemImageAsset) => Promise<void>;
   applyPdfDemoDefaults: () => Promise<void>;
   applyImageDemoDefaults: () => Promise<void>;
   applyDocumentsDirectory: () => Promise<void>;

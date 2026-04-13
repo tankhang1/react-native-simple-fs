@@ -1,14 +1,24 @@
 package expo.modules.filesystem
 
+import android.app.Activity
+import android.app.RecoverableSecurityException
 import android.content.ContentUris
+import android.content.Context
 import android.content.ContentValues
+import android.content.Intent
+import android.content.IntentSender
 import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import android.webkit.MimeTypeMap
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult
 import expo.modules.interfaces.filesystem.Permission
+import expo.modules.kotlin.activityresult.AppContextActivityResultContract
+import expo.modules.kotlin.activityresult.AppContextActivityResultLauncher
+import expo.modules.kotlin.functions.Coroutine
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.exception.Exceptions
@@ -30,6 +40,9 @@ class ReactNativeFilesystemModule : Module() {
     val cleanup: () -> Unit
   )
 
+  private var deleteImageFromLibraryLauncher: AppContextActivityResultLauncher<String, Boolean>? = null
+  private var pendingDeleteIntentSender: IntentSender? = null
+
   private val context
     get() = appContext.reactContext ?: throw Exceptions.AppContextLost()
 
@@ -43,6 +56,30 @@ class ReactNativeFilesystemModule : Module() {
     Name("ReactNativeFilesystem")
 
     Events("downloadProgress")
+
+    RegisterActivityContracts {
+      deleteImageFromLibraryLauncher = registerForActivityResult(
+        object : AppContextActivityResultContract<String, Boolean> {
+          override fun createIntent(context: Context, input: String): Intent {
+            val intentSender = pendingDeleteIntentSender
+              ?: throw IllegalStateException("Missing pending delete intent sender for image asset: $input")
+            val request = IntentSenderRequest.Builder(intentSender).build()
+
+            return Intent(StartIntentSenderForResult.ACTION_INTENT_SENDER_REQUEST)
+              .putExtra(StartIntentSenderForResult.EXTRA_INTENT_SENDER_REQUEST, request)
+          }
+
+          override fun parseResult(input: String, resultCode: Int, intent: Intent?): Boolean {
+            return resultCode == Activity.RESULT_OK
+          }
+        }
+      )
+    }
+
+    OnDestroy {
+      pendingDeleteIntentSender = null
+      deleteImageFromLibraryLauncher = null
+    }
 
     AsyncFunction("getDocumentsDirectory") {
       appContext.persistentFilesDirectory.absolutePath
@@ -92,6 +129,10 @@ class ReactNativeFilesystemModule : Module() {
 
     AsyncFunction("getImages") { options: Map<String, Any>? ->
       getImages((options?.get("limit") as? Number)?.toInt())
+    }
+
+    AsyncFunction("deleteImageFromLibrary") Coroutine { options: Map<String, Any?> ->
+      deleteImageFromLibrary(options)
     }
 
     AsyncFunction("downloadFile") { url: String, destinationPath: String, options: Map<String, Any>? ->
@@ -755,6 +796,97 @@ class ReactNativeFilesystemModule : Module() {
     }
 
     return images
+  }
+
+  private suspend fun deleteImageFromLibrary(options: Map<String, Any?>) {
+    val asset = options["asset"] as? Map<*, *>
+      ?: throw IOException("deleteImageFromLibrary requires an asset option.")
+    val assetUri = (asset["uri"] as? String)?.trim().orEmpty()
+    val assetId = (asset["id"] as? String)?.trim().orEmpty()
+
+    when {
+      assetUri.startsWith("content://") -> deleteMediaUri(Uri.parse(assetUri))
+      assetId.isNotEmpty() -> {
+        val numericId = assetId.toLongOrNull()
+          ?: throw IOException("deleteImageFromLibrary requires a valid media store asset id.")
+        val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, numericId)
+        deleteMediaUri(uri)
+      }
+      assetUri.isNotEmpty() && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q -> {
+        deleteLegacyImagePath(assetUri)
+      }
+      else -> {
+        throw IOException("deleteImageFromLibrary requires a valid media library asset URI or id.")
+      }
+    }
+  }
+
+  private suspend fun deleteMediaUri(uri: Uri) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+      ensureLegacyExternalStoragePermission(EnumSet.of(Permission.WRITE))
+    }
+
+    try {
+      val deletedRows = context.contentResolver.delete(uri, null, null)
+      if (deletedRows > 0 || !mediaUriExists(uri)) {
+        return
+      }
+
+      throw IOException("Unable to delete image library asset: $uri")
+    } catch (error: RecoverableSecurityException) {
+      launchDeletePermissionRequest(uri, error.userAction.actionIntent.intentSender)
+    } catch (error: SecurityException) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val intentSender = MediaStore
+          .createDeleteRequest(context.contentResolver, listOf(uri))
+          .intentSender
+        launchDeletePermissionRequest(uri, intentSender)
+        return
+      }
+
+      throw error
+    }
+  }
+
+  private suspend fun launchDeletePermissionRequest(uri: Uri, intentSender: IntentSender) {
+    val launcher = deleteImageFromLibraryLauncher
+      ?: throw IOException("Unable to initialize Android media delete flow.")
+
+    pendingDeleteIntentSender = intentSender
+
+    try {
+      val confirmed = launcher.launch(uri.toString())
+      if (!confirmed) {
+        throw IOException("Image deletion was canceled by the user.")
+      }
+    } finally {
+      pendingDeleteIntentSender = null
+    }
+  }
+
+  private fun mediaUriExists(uri: Uri): Boolean {
+    return try {
+      context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns._ID), null, null, null)?.use { cursor ->
+        cursor.moveToFirst()
+      } ?: false
+    } catch (_: SecurityException) {
+      true
+    } catch (_: Exception) {
+      false
+    }
+  }
+
+  private fun deleteLegacyImagePath(path: String) {
+    ensureLegacyExternalStoragePermission(EnumSet.of(Permission.WRITE))
+
+    val file = File(path)
+    if (!file.exists()) {
+      return
+    }
+
+    if (!deleteRecursively(file)) {
+      throw IOException("Unable to delete image library asset at path: $path")
+    }
   }
 
   private fun ensureLegacyExternalStoragePermission(requiredPermissions: EnumSet<Permission>) {

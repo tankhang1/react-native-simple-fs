@@ -53,6 +53,10 @@ export type ReactNativeFilesystemGetImagesOptions = {
   limit?: number;
 };
 
+export type ReactNativeFilesystemDeleteImageOptions = {
+  asset: ReactNativeFilesystemImageAsset;
+};
+
 export const ReactNativeFilesystemCommonMimeTypes = {
   Csv: 'text/csv',
   Gif: 'image/gif',

@@ -169,7 +169,7 @@ export function getModeMeta(mode: DemoMode) {
     case 'media':
       return {
         title: 'Media Library',
-        description: 'Download an image, save it to the system photo library, and list recent images.',
+        description: 'Download an image, save it to the system photo library, list recent images, and delete one again.',
       };
     case 'results':
       return {

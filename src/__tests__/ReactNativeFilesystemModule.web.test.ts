@@ -63,6 +63,24 @@ describe("ReactNativeFilesystemModule.web", () => {
     );
   });
 
+  it("rejects deleteImageFromLibrary on web", async () => {
+    await expect(
+      moduleInstance.deleteImageFromLibrary({
+        asset: {
+          id: "image-id",
+          uri: "content://media/external/images/media/1",
+          filename: "example.jpg",
+          width: 100,
+          height: 100,
+          mimeType: "image/jpeg",
+          size: 1024,
+          creationTime: 1,
+          modificationTime: 1,
+        },
+      }),
+    ).rejects.toThrow(unsupportedMessage);
+  });
+
   it("rejects writeFileToDownloads on web", async () => {
     await expect(
       moduleInstance.writeFileToDownloads("example.txt", "contents", "text/plain"),

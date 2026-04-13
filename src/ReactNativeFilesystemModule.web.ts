@@ -1,6 +1,7 @@
 import { registerWebModule, NativeModule } from 'expo';
 
 import {
+  ReactNativeFilesystemDeleteImageOptions,
   ReactNativeFilesystemDownloadOptions,
   ReactNativeFilesystemDownloadResult,
   ReactNativeFilesystemGetImagesOptions,
@@ -38,6 +39,11 @@ class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesystemModu
   async getImages(
     _options?: ReactNativeFilesystemGetImagesOptions
   ): Promise<ReactNativeFilesystemImageAsset[]> {
+    unsupported();
+  }
+  async deleteImageFromLibrary(
+    _options: ReactNativeFilesystemDeleteImageOptions
+  ): Promise<void> {
     unsupported();
   }
   async downloadFile(

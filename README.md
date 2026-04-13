@@ -22,6 +22,7 @@ Package: https://www.npmjs.com/package/react-native-simple-fs
 - open the iOS Files export flow
 - save a local image into the system photo library
 - list images from the system photo library
+- delete an image from the system photo library
 
 ## Compatibility
 
@@ -184,6 +185,7 @@ const pdfPath = await resolveReactNativeFilesystemFilePath(
 | `writeFileToDownloads(filename, contents, mimeType?)` | Export a file outside the app | Downloads | Files picker |
 | `saveImageToLibrary(path, options?)` | Save a local image into the system photo library | Yes | Yes |
 | `getImages(options?)` | List images from the system media library | Yes | Yes |
+| `deleteImageFromLibrary(options)` | Delete an image from the system media library | Yes | Yes |
 | `deleteFile(path)` | Delete a file or folder | Yes | Yes |
 | `mkdir(path)` | Create a directory | Yes | Yes |
 | `readdir(path)` | List directory entries | Yes | Yes |
@@ -400,6 +402,32 @@ Lists images from the system media library.
 
 ```ts
 const images = await ReactNativeFilesystem.getImages({ limit: 20 });
+```
+
+### `deleteImageFromLibrary(options)`
+
+Deletes an image from the system media library.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `options` | `ReactNativeFilesystemDeleteImageOptions` | Yes | Delete options |
+
+#### `ReactNativeFilesystemDeleteImageOptions`
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `asset` | `ReactNativeFilesystemImageAsset` | Yes | Asset returned by `saveImageToLibrary()` or `getImages()` |
+
+| Returns | Type |
+| --- | --- |
+| nothing | `Promise<void>` |
+
+```ts
+const images = await ReactNativeFilesystem.getImages({ limit: 20 });
+
+if (images[0]) {
+  await ReactNativeFilesystem.deleteImageFromLibrary({ asset: images[0] });
+}
 ```
 
 ### `deleteFile(path)`
@@ -647,7 +675,7 @@ async function saveImageExample() {
 
 ### Android
 
-`getImages()` requires media read permission.
+`getImages()` and `deleteImageFromLibrary()` require media library access.
 
 | Android version | Permission |
 | --- | --- |
@@ -655,6 +683,7 @@ async function saveImageExample() {
 | Android 12 and below | `READ_EXTERNAL_STORAGE` |
 
 Older Android public storage writes may also require legacy storage permissions.
+On Android 10 and above, deleting shared media may trigger a system confirmation dialog.
 
 ### iOS
 
@@ -662,7 +691,7 @@ Your app must include these `Info.plist` keys:
 
 | Key | Needed for |
 | --- | --- |
-| `NSPhotoLibraryUsageDescription` | `getImages()` |
+| `NSPhotoLibraryUsageDescription` | `getImages()`, `deleteImageFromLibrary()` |
 | `NSPhotoLibraryAddUsageDescription` | `saveImageToLibrary()` |
 
 ## Web behavior

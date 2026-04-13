@@ -312,6 +312,23 @@ export function useDemoState() {
     );
   }
 
+  async function deleteImageFromLibrary(asset: ReactNativeFilesystemImageAsset) {
+    await ReactNativeFilesystem.deleteImageFromLibrary({ asset });
+
+    if (savedImageAsset?.id === asset.id) {
+      setSavedImageAsset(null);
+      setSavedImageResult(`Deleted ${asset.filename || 'saved image'} from the system library`);
+    } else {
+      setSavedImageResult(`Deleted ${asset.filename || 'image'} from the system library`);
+    }
+
+    const nextImages = images.filter((image) => image.id !== asset.id);
+    setImages(nextImages);
+    setImagesResult(
+      `${nextImages.length} image${nextImages.length === 1 ? '' : 's'} remaining`
+    );
+  }
+
   return {
     sharedProps: {
       filePath,
@@ -363,6 +380,7 @@ export function useDemoState() {
       downloadSampleImage,
       saveCurrentImageToLibrary,
       loadRecentImages,
+      deleteImageFromLibrary,
       applyDocumentsDirectory,
       applyCustomDirectory,
       runAction,

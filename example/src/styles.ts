@@ -264,6 +264,9 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  mediaActionRow: {
+    marginTop: 4,
+  },
   previewShell: {
     overflow: 'hidden',
     borderColor: '#d7ccb8',

@@ -1,6 +1,7 @@
 import { NativeModule, requireNativeModule } from 'expo';
 
 import {
+  ReactNativeFilesystemDeleteImageOptions,
   ReactNativeFilesystemDownloadOptions,
   ReactNativeFilesystemDownloadResult,
   ReactNativeFilesystemGetImagesOptions,
@@ -20,6 +21,7 @@ declare class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesy
     options?: ReactNativeFilesystemSaveImageOptions
   ): Promise<ReactNativeFilesystemImageAsset>;
   getImages(options?: ReactNativeFilesystemGetImagesOptions): Promise<ReactNativeFilesystemImageAsset[]>;
+  deleteImageFromLibrary(options: ReactNativeFilesystemDeleteImageOptions): Promise<void>;
   downloadFile(
     url: string,
     destinationPath: string,

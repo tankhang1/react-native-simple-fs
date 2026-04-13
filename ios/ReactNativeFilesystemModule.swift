@@ -104,6 +104,13 @@ public class ReactNativeFilesystemModule: Module {
       return results
     }
 
+    AsyncFunction("deleteImageFromLibrary") { (options: [String: Any]) async throws in
+      try await self.ensurePhotoLibraryAccess(level: .readWrite)
+
+      let localIdentifier = try self.resolvePhotoAssetLocalIdentifier(from: options)
+      try await self.deletePhotoAsset(localIdentifier: localIdentifier)
+    }
+
     AsyncFunction("downloadFile") { (urlString: String, destinationPath: String, options: [String: Any]?) async throws -> [String: Any] in
       if (options?["saveToDownloads"] as? Bool) == true {
         throw NSError(
@@ -425,7 +432,7 @@ public class ReactNativeFilesystemModule: Module {
         NSLocalizedDescriptionKey:
           level == .addOnly
             ? "Photo library add permission was denied. Add NSPhotoLibraryAddUsageDescription and allow access before calling saveImageToLibrary()."
-            : "Photo library read permission was denied. Add NSPhotoLibraryUsageDescription and allow access before calling getImages()."
+            : "Photo library read permission was denied. Add NSPhotoLibraryUsageDescription and allow access before calling getImages() or deleteImageFromLibrary()."
       ]
     )
   }
@@ -482,6 +489,33 @@ public class ReactNativeFilesystemModule: Module {
     }
   }
 
+  private func resolvePhotoAssetLocalIdentifier(from options: [String: Any]) throws -> String {
+    guard let asset = options["asset"] as? [String: Any] else {
+      throw NSError(
+        domain: "ReactNativeFilesystem",
+        code: 400,
+        userInfo: [NSLocalizedDescriptionKey: "deleteImageFromLibrary requires an asset option."]
+      )
+    }
+
+    if let localIdentifier = asset["id"] as? String, !localIdentifier.isEmpty {
+      return localIdentifier
+    }
+
+    if let uri = asset["uri"] as? String, uri.hasPrefix("ph://") {
+      let localIdentifier = String(uri.dropFirst("ph://".count))
+      if !localIdentifier.isEmpty {
+        return localIdentifier
+      }
+    }
+
+    throw NSError(
+      domain: "ReactNativeFilesystem",
+      code: 400,
+      userInfo: [NSLocalizedDescriptionKey: "deleteImageFromLibrary requires a valid photo library asset id."]
+    )
+  }
+
   private func fetchPhotoAsset(localIdentifier: String) throws -> PHAsset {
     let assets = PHAsset.fetchAssets(withLocalIdentifiers: [localIdentifier], options: nil)
     guard let asset = assets.firstObject else {
@@ -493,6 +527,37 @@ public class ReactNativeFilesystemModule: Module {
     }
 
     return asset
+  }
+
+  private func deletePhotoAsset(localIdentifier: String) async throws {
+    let assets = PHAsset.fetchAssets(withLocalIdentifiers: [localIdentifier], options: nil)
+    guard assets.count > 0 else {
+      return
+    }
+
+    try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+      PHPhotoLibrary.shared().performChanges {
+        PHAssetChangeRequest.deleteAssets(assets)
+      } completionHandler: { success, error in
+        if let error {
+          continuation.resume(throwing: error)
+          return
+        }
+
+        guard success else {
+          continuation.resume(
+            throwing: NSError(
+              domain: "ReactNativeFilesystem",
+              code: 500,
+              userInfo: [NSLocalizedDescriptionKey: "Unable to delete the image from the photo library."]
+            )
+          )
+          return
+        }
+
+        continuation.resume(returning: ())
+      }
+    }
   }
 
   private func serializeImageAsset(_ asset: PHAsset) -> [String: Any?] {

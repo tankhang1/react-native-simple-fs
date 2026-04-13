@@ -37,6 +37,7 @@ const mockNativeModule: any = {
       modificationTime: 1700000000,
     },
   ]),
+  deleteImageFromLibrary: (jest.fn() as any).mockResolvedValue(undefined),
   downloadFile: (jest.fn() as any).mockResolvedValue({
     path: '/tmp/example-image.png',
     bytesWritten: 1024,
@@ -242,6 +243,7 @@ describe('example app mobile harness', () => {
         modificationTime: 1700000000,
       },
     ]);
+    mockNativeModule.deleteImageFromLibrary.mockResolvedValue(undefined);
     mockNativeModule.writeFileToDownloads.mockResolvedValue(
       'content://downloads/public_downloads/1',
     );
@@ -415,5 +417,25 @@ describe('example app mobile harness', () => {
         flattenText(node.props.children).includes('example-image.png'),
       ),
     ).toBe(true);
+
+    await act(async () => {
+      findButton('Delete saved image')!.props.onPress();
+    });
+    expect(mockNativeModule.deleteImageFromLibrary).toHaveBeenCalledWith({
+      asset: {
+        id: 'image-1',
+        uri: 'content://media/external/images/media/1',
+        filename: 'example-image.png',
+        width: 320,
+        height: 240,
+        mimeType: 'image/png',
+        size: 1024,
+        creationTime: 1700000000,
+        modificationTime: 1700000000,
+      },
+    });
+    expect(flattenText(findByTestId('saved-image-result').props.children)).toContain(
+      'Deleted example-image.png from the system library',
+    );
   });
 });
