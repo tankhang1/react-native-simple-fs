@@ -712,6 +712,40 @@ async function safeRead(path: string) {
 }
 ```
 
+## Roadmap
+
+The project is focused on staying small, practical, and Expo-friendly while covering the file workflows React Native apps need most often.
+
+### Planned next steps
+
+- add `appendFile(...)` for log files, incremental exports, and simple cache updates
+- add binary-friendly read and write support such as `base64`
+- expand `downloadFile(...)` with options like request headers and timeouts
+- add file hashing helpers such as `md5` or `sha256`
+- add `uploadFile(...)` with progress events and cancellation
+- improve Android `content://` and document picker interoperability
+- add JavaScript permission helpers for photo library workflows
+- keep improving docs, examples, and platform-specific troubleshooting
+
+### Priorities
+
+Short term:
+
+- `appendFile(...)`
+- `base64` read and write support
+- better download options
+
+Medium term:
+
+- upload APIs
+- transfer cancellation
+- binary and large-file improvements
+
+Long term:
+
+- platform ergonomics
+- stronger examples and production-readiness docs
+
 ## AI-friendly Summary
 
 Use this package when you need native filesystem helpers in a React Native app with Expo Modules.
