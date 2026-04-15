@@ -51,6 +51,12 @@ describe("ReactNativeFilesystemModule.web", () => {
     ).rejects.toThrow(unsupportedMessage);
   });
 
+  it("rejects appendFile on web", async () => {
+    await expect(
+      moduleInstance.appendFile("/tmp/file.txt", "contents"),
+    ).rejects.toThrow(unsupportedMessage);
+  });
+
   it("rejects saveImageToLibrary on web", async () => {
     await expect(
       moduleInstance.saveImageToLibrary("/tmp/image.png", { mimeType: "image/png" }),

@@ -16,6 +16,7 @@ declare class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesy
   exists(path: string): Promise<boolean>;
   readFile(path: string): Promise<string>;
   writeFile(path: string, contents: string): Promise<void>;
+  appendFile(path: string, contents: string): Promise<void>;
   saveImageToLibrary(
     path: string,
     options?: ReactNativeFilesystemSaveImageOptions

@@ -12,6 +12,7 @@ Package: https://www.npmjs.com/package/react-native-simple-fs
 
 - read UTF-8 text files
 - write UTF-8 text files
+- append UTF-8 text files
 - create folders
 - check whether files exist
 - read directory entries
@@ -181,6 +182,7 @@ const pdfPath = await resolveReactNativeFilesystemFilePath(
 | `exists(path)` | Check whether a path exists | Yes | Yes |
 | `readFile(path)` | Read a UTF-8 text file | Yes | Yes |
 | `writeFile(path, contents)` | Write a UTF-8 text file | Yes | Yes |
+| `appendFile(path, contents)` | Append UTF-8 text to a file | Yes | Yes |
 | `downloadFile(url, destinationPath, options?)` | Download a remote file | Yes | Yes |
 | `writeFileToDownloads(filename, contents, mimeType?)` | Export a file outside the app | Downloads | Files picker |
 | `saveImageToLibrary(path, options?)` | Save a local image into the system photo library | Yes | Yes |
@@ -259,6 +261,23 @@ Writes UTF-8 text to a file. Parent folders are created when needed.
 
 ```ts
 await ReactNativeFilesystem.writeFile(filePath, 'Hello world');
+```
+
+### `appendFile(path, contents)`
+
+Appends UTF-8 text to a file. Parent folders are created when needed. If the file does not exist yet, it is created automatically.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `path` | `string` | Yes | Absolute destination path |
+| `contents` | `string` | Yes | UTF-8 text to append |
+
+| Returns | Type |
+| --- | --- |
+| nothing | `Promise<void>` |
+
+```ts
+await ReactNativeFilesystem.appendFile(logPath, 'Started sync\n');
 ```
 
 ### `downloadFile(url, destinationPath, options?)`
@@ -646,6 +665,22 @@ async function exportJsonExample() {
 }
 ```
 
+### Example: append to a log file
+
+```ts
+async function appendLogExample() {
+  const logPath = await resolveReactNativeFilesystemFilePath(
+    { kind: ReactNativeFilesystemDirectoryKind.Documents },
+    'app.log'
+  );
+
+  await ReactNativeFilesystem.appendFile(logPath, 'App launched\n');
+  await ReactNativeFilesystem.appendFile(logPath, 'Sync started\n');
+
+  return ReactNativeFilesystem.readFile(logPath);
+}
+```
+
 ### Example: save an image to the system photo library
 
 ```ts
@@ -718,7 +753,7 @@ The project is focused on staying small, practical, and Expo-friendly while cove
 
 ### Planned next steps
 
-- add `appendFile(...)` for log files, incremental exports, and simple cache updates
+- ~~add `appendFile(...)` for log files, incremental exports, and simple cache updates~~
 - add binary-friendly read and write support such as `base64`
 - expand `downloadFile(...)` with options like request headers and timeouts
 - add file hashing helpers such as `md5` or `sha256`
@@ -731,7 +766,7 @@ The project is focused on staying small, practical, and Expo-friendly while cove
 
 Short term:
 
-- `appendFile(...)`
+- ~~`appendFile(...)`~~
 - `base64` read and write support
 - better download options
 
@@ -753,6 +788,7 @@ Use this package when you need native filesystem helpers in a React Native app w
 Key behaviors:
 
 - `readFile()` and `writeFile()` are text-oriented APIs
+- `appendFile()` appends UTF-8 text and creates the file if needed
 - `downloadFile()` saves a remote `http` or `https` file to a destination path
 - `writeFileToDownloads()` exports a visible file outside the app
 - `saveImageToLibrary()` takes a local image path and saves it into Photos / Gallery

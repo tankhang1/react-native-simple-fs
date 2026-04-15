@@ -62,6 +62,11 @@ public class ReactNativeFilesystemModule: Module {
       try contents.write(to: url, atomically: true, encoding: .utf8)
     }
 
+    AsyncFunction("appendFile") { (path: String, contents: String) throws in
+      let url = URL(fileURLWithPath: path)
+      try self.appendText(contents, to: url)
+    }
+
     AsyncFunction("saveImageToLibrary") { (path: String, options: [String: Any]?) async throws -> [String: Any?] in
       try await self.ensurePhotoLibraryAccess(level: .addOnly)
 
@@ -336,6 +341,36 @@ public class ReactNativeFilesystemModule: Module {
     }
 
     try FileManager.default.copyItem(atPath: from, toPath: to)
+  }
+
+  private func appendText(_ contents: String, to url: URL) throws {
+    let parentDirectory = url.deletingLastPathComponent()
+    try FileManager.default.createDirectory(
+      at: parentDirectory,
+      withIntermediateDirectories: true,
+      attributes: nil
+    )
+
+    guard let data = contents.data(using: .utf8) else {
+      throw NSError(
+        domain: "ReactNativeFilesystem",
+        code: 400,
+        userInfo: [NSLocalizedDescriptionKey: "Unable to encode appended text as UTF-8."]
+      )
+    }
+
+    if !FileManager.default.fileExists(atPath: url.path) {
+      FileManager.default.createFile(atPath: url.path, contents: data, attributes: nil)
+      return
+    }
+
+    let handle = try FileHandle(forWritingTo: url)
+    defer {
+      try? handle.close()
+    }
+
+    try handle.seekToEnd()
+    try handle.write(contentsOf: data)
   }
 
   private func performDownload(

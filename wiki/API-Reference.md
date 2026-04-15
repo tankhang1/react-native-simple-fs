@@ -38,6 +38,14 @@ Writes UTF-8 text to a file. Parent folders are created automatically.
 await ReactNativeFilesystem.writeFile(filePath, 'Hello world');
 ```
 
+### `appendFile(path, contents)`
+
+Appends UTF-8 text to a file. Parent folders are created automatically, and the file is created if it does not already exist.
+
+```ts
+await ReactNativeFilesystem.appendFile(logPath, 'Started sync\n');
+```
+
 ### `downloadFile(url, destinationPath, options?)`
 
 Downloads a remote `http` or `https` file.

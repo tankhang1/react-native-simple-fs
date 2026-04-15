@@ -30,6 +30,9 @@ class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesystemModu
   async writeFile(_path: string, _contents: string): Promise<void> {
     unsupported();
   }
+  async appendFile(_path: string, _contents: string): Promise<void> {
+    unsupported();
+  }
   async saveImageToLibrary(
     _path: string,
     _options?: ReactNativeFilesystemSaveImageOptions

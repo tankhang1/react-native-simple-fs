@@ -15,6 +15,7 @@ Use `react-native-simple-fs` when your app needs to:
 
 - read UTF-8 text files
 - write UTF-8 text files
+- append UTF-8 text files
 - create folders
 - check whether files exist
 - inspect file metadata
@@ -168,6 +169,7 @@ const recentImages = await ReactNativeFilesystem.getImages({ limit: 12 });
 | `exists(path)` | Check whether a path exists |
 | `readFile(path)` | Read a UTF-8 text file |
 | `writeFile(path, contents)` | Write a UTF-8 text file |
+| `appendFile(path, contents)` | Append UTF-8 text to a file |
 | `downloadFile(url, destinationPath, options?)` | Download a remote file |
 | `writeFileToDownloads(filename, contents, mimeType?)` | Export a file outside the app |
 | `saveImageToLibrary(path, options?)` | Save a local image into the system photo library |
@@ -339,6 +341,7 @@ async function saveImageExample() {
 
 - use `resolveReactNativeFilesystemFilePath(...)` to build app-local paths safely
 - use `readFile()` and `writeFile()` for UTF-8 text, not binary files
+- use `appendFile()` for logs, incremental exports, and simple cache updates
 - use the app Documents directory as the default working area
 - use `writeFileToDownloads()` when the user needs a visible exported file
 - handle permission prompts before calling photo library APIs

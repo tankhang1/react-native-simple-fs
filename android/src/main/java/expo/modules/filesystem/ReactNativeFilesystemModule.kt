@@ -119,6 +119,14 @@ class ReactNativeFilesystemModule : Module() {
       file.writeText(contents, Charsets.UTF_8)
     }
 
+    AsyncFunction("appendFile") { path: String, contents: String ->
+      validateFileAccess(path, Permission.WRITE)
+
+      val file = File(path)
+      file.parentFile?.mkdirs()
+      file.appendText(contents, Charsets.UTF_8)
+    }
+
     AsyncFunction("saveImageToLibrary") { path: String, options: Map<String, Any>? ->
       saveImageToLibrary(
         path = path,
