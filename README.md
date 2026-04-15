@@ -12,6 +12,8 @@ Package: https://www.npmjs.com/package/react-native-simple-fs
 
 - read UTF-8 text files
 - write UTF-8 text files
+- read files as `base64`
+- write files from `base64`
 - append UTF-8 text files
 - create folders
 - check whether files exist
@@ -180,8 +182,8 @@ const pdfPath = await resolveReactNativeFilesystemFilePath(
 | --- | --- | --- | --- |
 | `getDocumentsDirectory()` | Resolve app Documents directory | Yes | Yes |
 | `exists(path)` | Check whether a path exists | Yes | Yes |
-| `readFile(path)` | Read a UTF-8 text file | Yes | Yes |
-| `writeFile(path, contents)` | Write a UTF-8 text file | Yes | Yes |
+| `readFile(path, encoding?)` | Read a UTF-8 text file or `base64` data | Yes | Yes |
+| `writeFile(path, contents, encoding?)` | Write a UTF-8 text file or `base64` data | Yes | Yes |
 | `appendFile(path, contents)` | Append UTF-8 text to a file | Yes | Yes |
 | `downloadFile(url, destinationPath, options?)` | Download a remote file | Yes | Yes |
 | `writeFileToDownloads(filename, contents, mimeType?)` | Export a file outside the app | Downloads | Files picker |
@@ -225,13 +227,14 @@ Checks whether a path exists.
 const exists = await ReactNativeFilesystem.exists(filePath);
 ```
 
-### `readFile(path)`
+### `readFile(path, encoding?)`
 
-Reads a UTF-8 text file.
+Reads a file as UTF-8 text by default, or as `base64` when requested.
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `path` | `string` | Yes | Absolute file path or supported URI |
+| `encoding` | `'utf8' \| 'base64'` | No | Defaults to `'utf8'` |
 
 | Returns | Type |
 | --- | --- |
@@ -241,19 +244,24 @@ Reads a UTF-8 text file.
 const text = await ReactNativeFilesystem.readFile(filePath);
 ```
 
+```ts
+const pdfBase64 = await ReactNativeFilesystem.readFile(filePath, 'base64');
+```
+
 Notes:
 
-- use this only for UTF-8 text files
-- do not use this for binary files like images, PDFs, ZIPs, or videos
+- use the default `'utf8'` mode for text files
+- use `'base64'` for binary-friendly reads such as images, PDFs, ZIPs, or videos
 
-### `writeFile(path, contents)`
+### `writeFile(path, contents, encoding?)`
 
-Writes UTF-8 text to a file. Parent folders are created when needed.
+Writes UTF-8 text to a file by default, or decodes `base64` into raw bytes when requested. Parent folders are created when needed.
 
 | Parameter | Type | Required | Description |
 | --- | --- | --- | --- |
 | `path` | `string` | Yes | Absolute destination path |
-| `contents` | `string` | Yes | UTF-8 text to write |
+| `contents` | `string` | Yes | UTF-8 text or `base64` data to write |
+| `encoding` | `'utf8' \| 'base64'` | No | Defaults to `'utf8'` |
 
 | Returns | Type |
 | --- | --- |
@@ -261,6 +269,10 @@ Writes UTF-8 text to a file. Parent folders are created when needed.
 
 ```ts
 await ReactNativeFilesystem.writeFile(filePath, 'Hello world');
+```
+
+```ts
+await ReactNativeFilesystem.writeFile(imagePath, base64Image, 'base64');
 ```
 
 ### `appendFile(path, contents)`
@@ -754,7 +766,7 @@ The project is focused on staying small, practical, and Expo-friendly while cove
 ### Planned next steps
 
 - ~~add `appendFile(...)` for log files, incremental exports, and simple cache updates~~
-- add binary-friendly read and write support such as `base64`
+- ~~add binary-friendly read and write support such as `base64`~~
 - expand `downloadFile(...)` with options like request headers and timeouts
 - add file hashing helpers such as `md5` or `sha256`
 - add `uploadFile(...)` with progress events and cancellation
@@ -767,7 +779,7 @@ The project is focused on staying small, practical, and Expo-friendly while cove
 Short term:
 
 - ~~`appendFile(...)`~~
-- `base64` read and write support
+- ~~`base64` read and write support~~
 - better download options
 
 Medium term:
@@ -787,7 +799,7 @@ Use this package when you need native filesystem helpers in a React Native app w
 
 Key behaviors:
 
-- `readFile()` and `writeFile()` are text-oriented APIs
+- `readFile()` and `writeFile()` default to UTF-8 text and also support optional `base64`
 - `appendFile()` appends UTF-8 text and creates the file if needed
 - `downloadFile()` saves a remote `http` or `https` file to a destination path
 - `writeFileToDownloads()` exports a visible file outside the app

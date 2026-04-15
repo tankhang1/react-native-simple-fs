@@ -138,6 +138,23 @@ When adding or changing filesystem methods:
 - Keep [ios/ReactNativeFilesystemModule.swift](/Users/khang/Documents/Nexa/react-native-filesystem/ios/ReactNativeFilesystemModule.swift) and [android/src/main/java/expo/modules/filesystem/ReactNativeFilesystemModule.kt](/Users/khang/Documents/Nexa/react-native-filesystem/android/src/main/java/expo/modules/filesystem/ReactNativeFilesystemModule.kt) behavior aligned
 - Document any unsupported web behavior in [src/ReactNativeFilesystemModule.web.ts](/Users/khang/Documents/Nexa/react-native-filesystem/src/ReactNativeFilesystemModule.web.ts)
 
+### API Naming Stability
+
+Public parameter names, option keys, event payload fields, and return object properties are part of the API contract.
+
+- Keep public names consistent across versions.
+- Do not silently rename, remove, or repurpose an existing public field.
+- If the API needs to grow, prefer adding a new optional field instead of changing an existing one.
+- If a rename is unavoidable, treat it as a breaking change and document the migration clearly.
+- iOS, Android, TypeScript, README, and wiki docs must use the same public property names.
+
+Examples:
+
+- Good: add `encoding?: 'utf8' | 'base64'` while keeping existing `path` and `contents`
+- Good: add a new optional response field without changing existing field meanings
+- Avoid: rename `contents` to `data` in one platform or one release without a documented breaking change
+- Avoid: return `filePath` on Android and `path` on iOS for the same API
+
 ## When Not To Merge
 
 Do not merge if:

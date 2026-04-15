@@ -4,6 +4,7 @@ import {
   ReactNativeFilesystemDeleteImageOptions,
   ReactNativeFilesystemDownloadOptions,
   ReactNativeFilesystemDownloadResult,
+  ReactNativeFilesystemEncoding,
   ReactNativeFilesystemGetImagesOptions,
   ReactNativeFilesystemImageAsset,
   ReactNativeFilesystemModuleEvents,
@@ -24,10 +25,14 @@ class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesystemModu
   async exists(_path: string): Promise<boolean> {
     unsupported();
   }
-  async readFile(_path: string): Promise<string> {
+  async readFile(_path: string, _encoding?: ReactNativeFilesystemEncoding): Promise<string> {
     unsupported();
   }
-  async writeFile(_path: string, _contents: string): Promise<void> {
+  async writeFile(
+    _path: string,
+    _contents: string,
+    _encoding?: ReactNativeFilesystemEncoding
+  ): Promise<void> {
     unsupported();
   }
   async appendFile(_path: string, _contents: string): Promise<void> {

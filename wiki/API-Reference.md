@@ -20,22 +20,30 @@ Checks whether a path exists.
 const exists = await ReactNativeFilesystem.exists(filePath);
 ```
 
-### `readFile(path)`
+### `readFile(path, encoding?)`
 
-Reads a UTF-8 text file.
+Reads a file as UTF-8 text by default, or as `base64` when requested.
 
 ```ts
 const text = await ReactNativeFilesystem.readFile(filePath);
 ```
 
-Use this for text files only. Do not use it for binary data like images, ZIP files, or PDFs.
+```ts
+const binary = await ReactNativeFilesystem.readFile(filePath, 'base64');
+```
 
-### `writeFile(path, contents)`
+Use `'utf8'` for text files and `'base64'` for binary-friendly reads.
 
-Writes UTF-8 text to a file. Parent folders are created automatically.
+### `writeFile(path, contents, encoding?)`
+
+Writes UTF-8 text by default, or decodes `base64` into raw bytes. Parent folders are created automatically.
 
 ```ts
 await ReactNativeFilesystem.writeFile(filePath, 'Hello world');
+```
+
+```ts
+await ReactNativeFilesystem.writeFile(filePath, base64Contents, 'base64');
 ```
 
 ### `appendFile(path, contents)`

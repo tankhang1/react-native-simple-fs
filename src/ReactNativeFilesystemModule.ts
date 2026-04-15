@@ -4,6 +4,7 @@ import {
   ReactNativeFilesystemDeleteImageOptions,
   ReactNativeFilesystemDownloadOptions,
   ReactNativeFilesystemDownloadResult,
+  ReactNativeFilesystemEncoding,
   ReactNativeFilesystemGetImagesOptions,
   ReactNativeFilesystemImageAsset,
   ReactNativeFilesystemModuleEvents,
@@ -14,8 +15,8 @@ import {
 declare class ReactNativeFilesystemModule extends NativeModule<ReactNativeFilesystemModuleEvents> {
   getDocumentsDirectory(): Promise<string>;
   exists(path: string): Promise<boolean>;
-  readFile(path: string): Promise<string>;
-  writeFile(path: string, contents: string): Promise<void>;
+  readFile(path: string, encoding?: ReactNativeFilesystemEncoding): Promise<string>;
+  writeFile(path: string, contents: string, encoding?: ReactNativeFilesystemEncoding): Promise<void>;
   appendFile(path: string, contents: string): Promise<void>;
   saveImageToLibrary(
     path: string,

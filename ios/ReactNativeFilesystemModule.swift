@@ -5,6 +5,11 @@ import UIKit
 import UniformTypeIdentifiers
 
 public class ReactNativeFilesystemModule: Module {
+  private enum FileEncoding: String {
+    case utf8
+    case base64
+  }
+
   private lazy var fileExportHandler = IOSFileExportHandler(module: self)
   private var activeDownloadDelegates: [Int: IOSDownloadTaskDelegate] = [:]
   private let activeDownloadDelegatesQueue = DispatchQueue(
@@ -38,7 +43,7 @@ public class ReactNativeFilesystemModule: Module {
       FileManager.default.fileExists(atPath: path)
     }
 
-    AsyncFunction("readFile") { (path: String) throws -> String in
+    AsyncFunction("readFile") { (path: String, encoding: String?) throws -> String in
       guard FileManager.default.fileExists(atPath: path) else {
         throw NSError(
           domain: "ReactNativeFilesystem",
@@ -47,10 +52,16 @@ public class ReactNativeFilesystemModule: Module {
         )
       }
 
-      return try String(contentsOfFile: path, encoding: .utf8)
+      switch try self.resolveFileEncoding(encoding) {
+      case .utf8:
+        return try String(contentsOfFile: path, encoding: .utf8)
+      case .base64:
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        return data.base64EncodedString()
+      }
     }
 
-    AsyncFunction("writeFile") { (path: String, contents: String) throws in
+    AsyncFunction("writeFile") { (path: String, contents: String, encoding: String?) throws in
       let url = URL(fileURLWithPath: path)
       let parentDirectory = url.deletingLastPathComponent()
 
@@ -59,7 +70,20 @@ public class ReactNativeFilesystemModule: Module {
         withIntermediateDirectories: true,
         attributes: nil
       )
-      try contents.write(to: url, atomically: true, encoding: .utf8)
+
+      switch try self.resolveFileEncoding(encoding) {
+      case .utf8:
+        try contents.write(to: url, atomically: true, encoding: .utf8)
+      case .base64:
+        guard let data = Data(base64Encoded: contents) else {
+          throw NSError(
+            domain: "ReactNativeFilesystem",
+            code: 400,
+            userInfo: [NSLocalizedDescriptionKey: "Unable to decode base64 contents for path: \(path)"]
+          )
+        }
+        try data.write(to: url, options: .atomic)
+      }
     }
 
     AsyncFunction("appendFile") { (path: String, contents: String) throws in
@@ -341,6 +365,22 @@ public class ReactNativeFilesystemModule: Module {
     }
 
     try FileManager.default.copyItem(atPath: from, toPath: to)
+  }
+
+  private func resolveFileEncoding(_ encoding: String?) throws -> FileEncoding {
+    guard let encoding = encoding?.trimmingCharacters(in: .whitespacesAndNewlines), !encoding.isEmpty else {
+      return .utf8
+    }
+
+    guard let resolvedEncoding = FileEncoding(rawValue: encoding.lowercased()) else {
+      throw NSError(
+        domain: "ReactNativeFilesystem",
+        code: 400,
+        userInfo: [NSLocalizedDescriptionKey: "Unsupported file encoding: \(encoding). Use 'utf8' or 'base64'."]
+      )
+    }
+
+    return resolvedEncoding
   }
 
   private func appendText(_ contents: String, to url: URL) throws {

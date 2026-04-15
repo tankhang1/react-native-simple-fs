@@ -57,6 +57,14 @@ export type ReactNativeFilesystemDeleteImageOptions = {
   asset: ReactNativeFilesystemImageAsset;
 };
 
+export const ReactNativeFilesystemEncodings = {
+  Utf8: 'utf8',
+  Base64: 'base64',
+} as const;
+
+export type ReactNativeFilesystemEncoding =
+  (typeof ReactNativeFilesystemEncodings)[keyof typeof ReactNativeFilesystemEncodings];
+
 export const ReactNativeFilesystemCommonMimeTypes = {
   Csv: 'text/csv',
   Gif: 'image/gif',

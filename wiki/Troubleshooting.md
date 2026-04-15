@@ -23,16 +23,26 @@ The package supports web import compatibility, but native filesystem methods are
 
 ## `readFile()` returns the wrong result for binary files
 
-`readFile()` is designed for UTF-8 text.
+`readFile()` defaults to UTF-8 text.
 
-Do not use it for:
+If you need binary-friendly reads, pass `'base64'`:
+
+```ts
+const contents = await ReactNativeFilesystem.readFile(filePath, 'base64');
+```
+
+Do not use the default UTF-8 mode for:
 
 - images
 - ZIP files
 - PDFs
 - videos
 
-Use download or native file handling flows for binary content instead.
+You can also write binary-friendly data with:
+
+```ts
+await ReactNativeFilesystem.writeFile(filePath, base64Contents, 'base64');
+```
 
 ## `getImages()` or `deleteImageFromLibrary()` fails
 

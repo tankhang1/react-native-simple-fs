@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Base64
 import android.webkit.MimeTypeMap
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult
@@ -34,6 +35,11 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 class ReactNativeFilesystemModule : Module() {
+  private enum class FileEncoding {
+    UTF8,
+    BASE64
+  }
+
   private data class DownloadTarget(
     val path: String,
     val outputStream: OutputStream,
@@ -93,13 +99,20 @@ class ReactNativeFilesystemModule : Module() {
       File(path).exists()
     }
 
-    AsyncFunction("readFile") { path: String ->
+    AsyncFunction("readFile") { path: String, encoding: String? ->
+      val resolvedEncoding = resolveFileEncoding(encoding)
+
       if (isContentUri(path)) {
         val uri = Uri.parse(path)
         val inputStream = context.contentResolver.openInputStream(uri)
           ?: throw FileNotFoundException("Unable to open content URI: $path")
 
-        return@AsyncFunction inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        return@AsyncFunction inputStream.use {
+          when (resolvedEncoding) {
+            FileEncoding.UTF8 -> it.bufferedReader(Charsets.UTF_8).readText()
+            FileEncoding.BASE64 -> Base64.encodeToString(it.readBytes(), Base64.NO_WRAP)
+          }
+        }
       }
 
       validateFileAccess(path, Permission.READ)
@@ -108,15 +121,21 @@ class ReactNativeFilesystemModule : Module() {
       if (!file.exists()) {
         throw IOException("File does not exist at path: $path")
       }
-      file.readText(Charsets.UTF_8)
+      when (resolvedEncoding) {
+        FileEncoding.UTF8 -> file.readText(Charsets.UTF_8)
+        FileEncoding.BASE64 -> Base64.encodeToString(file.readBytes(), Base64.NO_WRAP)
+      }
     }
 
-    AsyncFunction("writeFile") { path: String, contents: String ->
+    AsyncFunction("writeFile") { path: String, contents: String, encoding: String? ->
       validateFileAccess(path, Permission.WRITE)
 
       val file = File(path)
       file.parentFile?.mkdirs()
-      file.writeText(contents, Charsets.UTF_8)
+      when (resolveFileEncoding(encoding)) {
+        FileEncoding.UTF8 -> file.writeText(contents, Charsets.UTF_8)
+        FileEncoding.BASE64 -> file.writeBytes(decodeBase64(contents, path))
+      }
     }
 
     AsyncFunction("appendFile") { path: String, contents: String ->
@@ -305,6 +324,22 @@ class ReactNativeFilesystemModule : Module() {
       "No $permissionName access for path: $path. " +
         "Use getDocumentsDirectory() for app-private files or writeFileToDownloads() for Android Downloads."
     )
+  }
+
+  private fun resolveFileEncoding(encoding: String?): FileEncoding {
+    return when (encoding?.trim()?.lowercase().orEmpty()) {
+      "", "utf8" -> FileEncoding.UTF8
+      "base64" -> FileEncoding.BASE64
+      else -> throw IOException("Unsupported file encoding: $encoding. Use 'utf8' or 'base64'.")
+    }
+  }
+
+  private fun decodeBase64(contents: String, path: String): ByteArray {
+    return try {
+      Base64.decode(contents, Base64.DEFAULT)
+    } catch (error: IllegalArgumentException) {
+      throw IOException("Unable to decode base64 contents for path: $path", error)
+    }
   }
 
   private fun downloadFile(
